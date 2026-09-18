@@ -1,0 +1,27 @@
+{
+  "format": "dimer_hf_snapshot",
+  "formatVersion": 1,
+  "modelKey": "aurora-0.25-small",
+  "modelId": "microsoft/aurora",
+  "revision": "a96afd7ee6d65e3bd2d476f3be798a25a56f2296",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1152,
+      "sha256": "d969382582f6e1eebd21aefe44d776a3ec1b53c351fced08411c3be23def8385"
+    },
+    {
+      "path": "aurora-0.25-small-pretrained.ckpt",
+      "bytes": 451339106,
+      "sha256": "f80f78de1524a9faba8c9053e4a8ce6a2114ec01cff7f7b4efe9377200d50621",
+      "note": "torch archive whose pickle holds a plain state dict (globals: collections.OrderedDict, torch._utils._rebuild_tensor_v2, torch.FloatStorage). Never served: loaded once through the weights-only unpickler, adapted with the upstream compatibility shim and re-saved as aurora-0.25-small-pretrained.safetensors (digest pinned in pipeline.py)."
+    },
+    {
+      "path": "aurora-0.25-static.pickle",
+      "bytes": 12459115,
+      "sha256": "e382103f6b24bcf1f996cc0af217c71ff2fc66507a5221e1300b5017581bd318",
+      "note": "plain pickle of three float32 (721, 1440) numpy arrays lsm/z/slt (globals: numpy.core.numeric._frombuffer, numpy.dtype). Never served: loaded once through a find_class allow-list of those two names and re-saved as aurora-0.25-static.safetensors (digest pinned in pipeline.py)."
+    }
+  ],
+  "totalBytes": 463799373
+}

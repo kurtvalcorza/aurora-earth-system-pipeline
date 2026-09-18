@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+outputs/
+.DS_Store
+
+# Model weights are pulled locally; only the manifest, the upstream README and the converted config are committable
+weights/**/*.safetensors
+weights/**/*.model
+weights/**/*.pickle
+weights/**/*.ckpt
+weights/**/*.bin
+weights/**/*.pt
+weights/**/*.pth
+weights/**/*.onnx
+weights/**/.cache/
+
+
+weights/wb2-era5-1p5deg/
