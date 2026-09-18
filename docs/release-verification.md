@@ -125,7 +125,7 @@ A known-failing default path in the supported runtime blocks release (REL11).
 
 | Notebook | Commit / notebook blob | Date (UTC) | Executor | Outcome |
 |---|---|---|---|---|
-| `aurora_earth_system_colab.ipynb` | __LOCAL_ROW__ | | | |
+| `aurora_earth_system_colab.ipynb` | `6017ca5` / `b7e27bf3` | 2026-09-18 | Local pre-flight harness (Windows, CPython 3.12.10, CPU, `google.colab` shim, pins pre-installed) | PASS — pre-flight only, **not** promotion evidence |
 
 ## Recorded executions
 
@@ -136,10 +136,14 @@ runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
-| __LOCAL_EXEC__ | | | | | |
+| 2026-09-18 | `6017ca5` / `b7e27bf3` | Local pre-flight harness (Windows, CPython 3.12.10, CPU float32, `torch 2.14.0+cpu`, `microsoft-aurora 2.0.1`) | Default sample path (stage → verify → **static audits + conversion of both pickles in the notebook** → strict rebuild with LoRA → pinned-data assembly from the cache → validate → refusal probes → 4-step roll-out + determinism → persistence + frozen evaluation at 4 leads → LoRA adapt → evaluate → new-origin forecast → export → reload); the three Hub files and the 57 data objects were pre-staged, so `stage_missing_files` fetched 0 of 3 entries, `verify_snapshot` verified 3, every data object was served from the cache after its digest check, and `convert_model` produced the pinned digests (`fc03b5fc…`, `9bd430b6…`) | 238.3 s | **PASSED** — 11/11 code cells; audits 0 violations; test window (October 2021, 121 × 240): frozen 6 / 12 / 18 / 24 h mean skill 1.569 / 1.328 / 1.238 / 1.295 with 1 / 1 / 1 / 2 of 9 variables beating persistence; LoRA adaptation 540,672 params, 12 samples, 6 epochs, 194.6 s, validation loss 0.185 → 0.052; **adapted 0.897 / 0.839 / 0.858 / 0.957 with 6 / 8 / 8 / 6 of 9**; `2t` 6 h 2.666 → 2.453 → 1.805 K, `msl` 269 → 415 → 229 Pa, `z500` 249 → 411 → 284 m²/s²; adapter 2,173,200 B (80 tensors); reload parity 0.0 / 0.0. Pre-flight; hosted clean-runtime run still required |
 
 ## Current status
 
 The notebook source is complete and passes all static checks, including the generator parity checks (`--check` OK).
-The repository stays at **Candidate** until a Colab or fresh-container run of the exact release revision is recorded
-above.
+A local pre-flight execution of the committed blob completed the whole default path on CPU — including the static
+audits and the conversion of both downloaded pickles inside the notebook — which catches defects but is **not** a
+supported runtime under REL1/REL10, and it ran with the Hub files and the data objects pre-staged, so neither the
+463 MB Hub download nor the 196 MB WeatherBench 2 fetch has been exercised end to end by the notebook; the hosted run
+must cover both. The repository stays at **Candidate** until a Colab or fresh-container run of the exact release
+revision is recorded above.
