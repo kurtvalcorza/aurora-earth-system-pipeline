@@ -73,7 +73,7 @@ Tests are offline: crafted pickles, temporary manifests, synthetic windows and a
 
 ## Release status
 
-**Candidate** — the notebook source passes all static checks and one local CPU pre-flight execution of the committed blob is recorded; a clean run in a supported hosted runtime is still required (see `STATUS.md` and `docs/release-verification.md`).
+**Release-grade** — the `E2E` notebook blob `42fb3883` (committed at `4a828fc`) executed top-to-bottom in a clean Kaggle Tesla T4 runtime on 2026-09-19 (11/11 ok (1 restart after install cell), 283.5 s); the record is in `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks — are necessary but were never the evidence; the hosted run is. A later change to the carried modules or the notebook returns the status to Candidate until re-verified.
 
 ## Licensing
 
