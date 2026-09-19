@@ -169,6 +169,27 @@ class _NoModel:
     def state_dict(self):
         return {}
 
+    def named_parameters(self):
+        return iter(())
+
+
+class _StubModel:
+    """Parameter names shaped like the real model so the scope check can reason about them without torch."""
+
+    NAMES = (
+        "backbone.encoder_layers.0.blocks.0.attn.qkv.lora_A",
+        "backbone.encoder_layers.0.blocks.0.attn.qkv.lora_B",
+        "decoder.surf_heads.2t.weight",
+        "encoder.surf_token_embeds.weights.2t",
+        "backbone.encoder_layers.0.blocks.0.attn.qkv.weight",
+    )
+
+    def state_dict(self):
+        return dict.fromkeys(self.NAMES, object())
+
+    def named_parameters(self):
+        return iter((name, object()) for name in self.NAMES)
+
 
 def _pipeline_without_model(use_lora=True):
     return AuroraPipeline(model=_NoModel(), device="cpu", weights_dir=pl.DEFAULT_WEIGHTS_DIR, source="test", use_lora=use_lora)
@@ -182,10 +203,11 @@ def test_save_artifact_requires_adaptation(forbid_model_imports):
 def test_load_artifact_rejects_bad_manifests_before_touching_weights(tmp_path, forbid_model_imports):
     manifest = {
         "format": pl.ARTIFACT_FORMAT,
+        "format_version": pl.ARTIFACT_FORMAT_VERSION,
         "base_model": {"id": MODEL_ID, "revision": MODEL_REVISION, "converted_sha256": dict(CONVERTED_SHA256)},
         "files": [{"path": pl.ARTIFACT_WEIGHTS_NAME, "bytes": 1, "sha256": "0" * 64}],
-        "tensors": ["backbone.x.lora_A"],
-        "adapter": {},
+        "tensors": [],
+        "adapter": {"trainable": "lora"},
     }
     pipe = _pipeline_without_model()
     (tmp_path / pl.ARTIFACT_MANIFEST_NAME).write_text(json.dumps({**manifest, "format": "other"}))
@@ -204,6 +226,65 @@ def test_load_artifact_rejects_bad_manifests_before_touching_weights(tmp_path, f
     (tmp_path / pl.ARTIFACT_MANIFEST_NAME).write_text(json.dumps(good))
     with pytest.raises(ValueError, match="use_lora=True"):
         _pipeline_without_model(use_lora=False).load_artifact(tmp_path)
+
+
+def _scope_manifest(**overrides):
+    lora = [n for n in _StubModel.NAMES if "lora" in n]
+    manifest = {
+        "format": pl.ARTIFACT_FORMAT,
+        "format_version": pl.ARTIFACT_FORMAT_VERSION,
+        "base_model": {"id": MODEL_ID, "revision": MODEL_REVISION, "converted_sha256": dict(CONVERTED_SHA256)},
+        "files": [{"path": pl.ARTIFACT_WEIGHTS_NAME, "bytes": 1, "sha256": "0" * 64}],
+        "tensors": sorted(lora),
+        "adapter": {"trainable": "lora"},
+    }
+    manifest.update(overrides)
+    return manifest
+
+
+def test_load_artifact_enforces_the_declared_scope_before_deserialising(tmp_path, forbid_model_imports):
+    pipe = AuroraPipeline(model=_StubModel(), device="cpu", weights_dir=pl.DEFAULT_WEIGHTS_DIR, source="t", use_lora=True)
+    (tmp_path / pl.ARTIFACT_WEIGHTS_NAME).write_bytes(b"x")  # never opened: every case below fails first
+    heads = [n for n in _StubModel.NAMES if n.startswith(("decoder.surf_heads.", "encoder.surf_token_embeds."))]
+    cases = [
+        (_scope_manifest(format_version="0.9"), "format_version"),
+        (_scope_manifest(files=[]), "exactly one weights file"),
+        (_scope_manifest(files=[{"path": "adapter.safetensors", "bytes": 1, "sha256": "0" * 64}] * 2), "exactly one"),
+        (_scope_manifest(files=[{"path": "weights.safetensors", "bytes": 1, "sha256": "0" * 64}]), "must be named"),
+        (_scope_manifest(files=[{"path": "../adapter.safetensors", "bytes": 1, "sha256": "0" * 64}]), "must be named"),
+        (_scope_manifest(adapter={}), "exactly 'lora' or 'lora\\+heads'"),
+        (_scope_manifest(adapter={"trainable": "everything"}), "exactly 'lora' or"),
+        # a backbone weight smuggled in beside the LoRA tensors
+        (_scope_manifest(tensors=sorted([*_scope_manifest()["tensors"], _StubModel.NAMES[-1]])), "does not match"),
+        # heads listed while the declared scope is lora only
+        (_scope_manifest(tensors=sorted([*_scope_manifest()["tensors"], *heads])), "does not match"),
+        # lora+heads declared but the heads are not carried
+        (_scope_manifest(adapter={"trainable": "lora+heads"}), "does not match"),
+        # a LoRA tensor missing
+        (_scope_manifest(tensors=_scope_manifest()["tensors"][1:]), "does not match"),
+    ]
+    for manifest, message in cases:
+        (tmp_path / pl.ARTIFACT_MANIFEST_NAME).write_text(json.dumps(manifest))
+        with pytest.raises(ValueError, match=message):
+            pipe.load_artifact(tmp_path)
+    # the well-formed manifests get as far as the digest check (the weights file is a placeholder)
+    with_heads = _scope_manifest(adapter={"trainable": "lora+heads"}, tensors=sorted([*_scope_manifest()["tensors"], *heads]))
+    for good in (_scope_manifest(), with_heads):
+        (tmp_path / pl.ARTIFACT_MANIFEST_NAME).write_text(json.dumps(good))
+        with pytest.raises(ValueError, match="digest or size mismatch"):
+            pipe.load_artifact(tmp_path)
+    # a pipeline built without LoRA is refused after the static checks, before any weights work
+    (tmp_path / pl.ARTIFACT_MANIFEST_NAME).write_text(json.dumps(_scope_manifest()))
+    with pytest.raises(ValueError, match="use_lora=True"):
+        _pipeline_without_model(use_lora=False).load_artifact(tmp_path)
+
+
+def test_evaluate_refuses_an_explicitly_empty_origin_list(forbid_model_imports):
+    from conftest import synthetic_window
+
+    pipe = _pipeline_without_model()
+    with pytest.raises(ValueError, match="origins must not be empty"):
+        pipe.evaluate(synthetic_window(height=33, width=64, steps=3), origins=[])
 
 
 def test_adapt_validates_hyperparameters_before_model_work(forbid_model_imports):

@@ -89,6 +89,7 @@ MODEL_CLASS = "AuroraSmallPretrained"
 PARAMETER_COUNT = 112_797_584
 STATE_TENSORS = 332
 LORA_TENSORS = 80
+ADAPTATION_MODES = ("lora", "lora+heads")  # the only scopes an adapter may declare
 LORA_PARAMETERS = 540_672
 SURF_VARS: tuple[str, ...] = ("2t", "10u", "10v", "msl")
 ATMOS_VARS: tuple[str, ...] = ("t", "u", "v", "q", "z")
@@ -571,7 +572,7 @@ class AuroraPipeline:
         `require_source=False` the pickles may be absent (the DIMER-hosted case) as long as the converted
         files verify. `report` receives the audit and conversion records when a conversion happens."""
         root = Path(weights_dir) if weights_dir is not None else DEFAULT_WEIGHTS_DIR
-        if require_source or (root / MANIFEST_NAME).is_file():
+        if require_source:
             stage_missing_files(root, allow_download=allow_download)
             snapshot = verify_snapshot(root)
             if not snapshot["converted"]:
@@ -583,8 +584,10 @@ class AuroraPipeline:
                 report({"conversion": "converted files already present and digest-verified"})
             source = "converted from the manifest-verified source pickles"
         else:
+            # Converted-only deployment: only the two safetensors files are verified, whether or not the
+            # committed source manifest sits beside them; the pickles are never required or fetched here.
             verify_converted(root)
-            source = "converted files, pinned digests (source pickles absent)"
+            source = "converted files, pinned digests (source pickles not required)"
         import torch
         from safetensors.torch import load_file
 
@@ -693,6 +696,8 @@ class AuroraPipeline:
                 f"window has {checked['n_steps']} steps; {HISTORY_STEPS + max_lead_steps} are needed "
                 f"for {max_lead_steps} lead steps"
             )
+        if origins is not None and len(origins) == 0:
+            raise ValueError("origins must not be empty; pass None to score every origin")
         chosen = list(origins) if origins is not None else list(range(HISTORY_STEPS - 1, last_origin + 1))
         for origin in chosen:
             if not HISTORY_STEPS - 1 <= origin <= last_origin:
@@ -717,7 +722,7 @@ class AuroraPipeline:
     # ---- adaptation -----------------------------------------------------------------------------------
 
     def _trainable(self, mode: str) -> list[str]:
-        if mode not in ("lora", "lora+heads"):
+        if mode not in ADAPTATION_MODES:
             raise ValueError("trainable must be 'lora' or 'lora+heads'")
         if not self.use_lora:
             raise ValueError("adapt() needs a pipeline built with use_lora=True")
@@ -793,46 +798,59 @@ class AuroraPipeline:
                     losses.append(float(loss_of(pred, targets(val_checked, origin))))
             return sum(losses) / len(losses)
 
-        history: list[dict[str, Any]] = []
-        best_state = copy.deepcopy({k: v.detach().clone() for k, v in model.state_dict().items() if k in set(names)})
-        best_epoch = 0
-        entry: dict[str, Any] = {
-            "epoch": 0,
-            "train_loss": None,
-            "val_loss": val_loss(),
-            "note": "frozen model (LoRA zero-initialised)",
-        }
-        if val_checked is not None:
-            entry["val"] = self.evaluate(val_checked)["variables"]
-        history.append(entry)
-        best_val = entry["val_loss"] if entry["val_loss"] is not None else math.inf
-        if progress:
-            progress(entry)
-        samples = [(w, origin) for w in train_checked for origin in range(HISTORY_STEPS - 1, w["n_steps"] - 1)]
-        generator = torch.Generator().manual_seed(seed)
-        for epoch in range(1, epochs + 1):
-            model.train()
-            order = torch.randperm(len(samples), generator=generator).tolist()
-            losses = []
-            for index in order:
-                checked, origin = samples[index]
-                pred = model.forward(self._batch(checked, origin).to(self.device))
-                loss = loss_of(pred, targets(checked, origin))
-                optimiser.zero_grad(set_to_none=True)
-                loss.backward()
-                optimiser.step()
-                losses.append(float(loss.detach()))
-            model.eval()
-            entry = {"epoch": epoch, "train_loss": sum(losses) / len(losses), "val_loss": val_loss()}
+        initial_state = {k: v.detach().clone() for k, v in model.state_dict().items() if k in set(names)}
+        try:
+            history: list[dict[str, Any]] = []
+            best_state = copy.deepcopy({k: v.detach().clone() for k, v in model.state_dict().items() if k in set(names)})
+            best_epoch = 0
+            entry: dict[str, Any] = {
+                "epoch": 0,
+                "train_loss": None,
+                "val_loss": val_loss(),
+                "note": "frozen model (LoRA zero-initialised)",
+            }
             if val_checked is not None:
                 entry["val"] = self.evaluate(val_checked)["variables"]
             history.append(entry)
+            best_val = entry["val_loss"] if entry["val_loss"] is not None else math.inf
             if progress:
                 progress(entry)
-            if entry["val_loss"] is None or entry["val_loss"] < best_val:
-                best_val = entry["val_loss"] if entry["val_loss"] is not None else best_val
-                best_state = {k: v.detach().clone() for k, v in model.state_dict().items() if k in set(names)}
-                best_epoch = epoch
+            samples = [(w, origin) for w in train_checked for origin in range(HISTORY_STEPS - 1, w["n_steps"] - 1)]
+            generator = torch.Generator().manual_seed(seed)
+            for epoch in range(1, epochs + 1):
+                model.train()
+                order = torch.randperm(len(samples), generator=generator).tolist()
+                losses = []
+                for index in order:
+                    checked, origin = samples[index]
+                    pred = model.forward(self._batch(checked, origin).to(self.device))
+                    loss = loss_of(pred, targets(checked, origin))
+                    optimiser.zero_grad(set_to_none=True)
+                    loss.backward()
+                    optimiser.step()
+                    losses.append(float(loss.detach()))
+                model.eval()
+                entry = {"epoch": epoch, "train_loss": sum(losses) / len(losses), "val_loss": val_loss()}
+                if val_checked is not None:
+                    entry["val"] = self.evaluate(val_checked)["variables"]
+                history.append(entry)
+                if progress:
+                    progress(entry)
+                if entry["val_loss"] is None or entry["val_loss"] < best_val:
+                    best_val = entry["val_loss"] if entry["val_loss"] is not None else best_val
+                    best_state = {k: v.detach().clone() for k, v in model.state_dict().items() if k in set(names)}
+                    best_epoch = epoch
+        except BaseException:
+            # Transactional: a failure in training, validation or the progress callback leaves the model as
+            # it was before adapt() (LoRA and heads restored), frozen, with no adapter attached.
+            restore = dict(model.state_dict())
+            restore.update(initial_state)
+            model.load_state_dict(restore, strict=True)
+            model.eval()
+            for param in model.parameters():
+                param.requires_grad_(False)
+            self.adapter = None
+            raise
         merged = dict(model.state_dict())
         merged.update(best_state)
         model.load_state_dict(merged, strict=True)
@@ -890,33 +908,63 @@ class AuroraPipeline:
         (out / ARTIFACT_MANIFEST_NAME).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         return out
 
-    def load_artifact(self, artifact_dir: str | Path) -> dict[str, Any]:
-        """Verify an adapter's manifest and digest, then overwrite exactly the tensors it carries."""
-        root = Path(artifact_dir)
-        manifest = json.loads((root / ARTIFACT_MANIFEST_NAME).read_text(encoding="utf-8"))
+    @staticmethod
+    def check_artifact_manifest(root: Path, manifest: Mapping[str, Any]) -> tuple[Path, str]:
+        """Static checks on an adapter manifest, before any model or weights work: format and version, the
+        pinned base, exactly one weights entry named `adapter.safetensors` inside the artifact directory, and
+        an adaptation mode that is one of the declared scopes. Returns the weights path and the mode."""
         if manifest.get("format") != ARTIFACT_FORMAT:
             raise ValueError(f"artifact format {manifest.get('format')!r} != {ARTIFACT_FORMAT!r}")
+        if manifest.get("format_version") != ARTIFACT_FORMAT_VERSION:
+            raise ValueError(
+                f"artifact format_version {manifest.get('format_version')!r} is not supported "
+                f"(expected {ARTIFACT_FORMAT_VERSION!r})"
+            )
         base = manifest.get("base_model", {})
         if (base.get("id"), base.get("revision")) != (MODEL_ID, MODEL_REVISION):
             raise ValueError("artifact was adapted from a different base model or revision")
         if base.get("converted_sha256") != CONVERTED_SHA256:
             raise ValueError("artifact records different converted-base digests")
+        files = manifest.get("files")
+        if not isinstance(files, list) or len(files) != 1:
+            raise ValueError("artifact manifest must list exactly one weights file")
+        entry = files[0]
+        if not isinstance(entry, Mapping) or entry.get("path") != ARTIFACT_WEIGHTS_NAME:
+            raise ValueError(f"artifact weights file must be named {ARTIFACT_WEIGHTS_NAME!r}")
+        weights_path = (root / entry["path"]).resolve()
+        if weights_path.parent != root.resolve():
+            raise ValueError("artifact weights file must sit inside the artifact directory")
+        adapter = manifest.get("adapter")
+        mode = adapter.get("trainable") if isinstance(adapter, Mapping) else None
+        if mode not in ADAPTATION_MODES:
+            raise ValueError("artifact adapter.trainable must be exactly 'lora' or 'lora+heads'")
+        if not isinstance(manifest.get("tensors"), list):
+            raise ValueError("artifact manifest must list its tensors")
+        return weights_path, mode
+
+    def load_artifact(self, artifact_dir: str | Path) -> dict[str, Any]:
+        """Verify an adapter's manifest, scope and digest, then overwrite exactly the tensors the scope allows."""
+        root = Path(artifact_dir)
+        manifest = json.loads((root / ARTIFACT_MANIFEST_NAME).read_text(encoding="utf-8"))
+        weights_path, mode = self.check_artifact_manifest(root, manifest)
+        if not self.use_lora:
+            raise ValueError("this adapter carries LoRA tensors; build the pipeline with use_lora=True")
+        expected = sorted(self._trainable(mode))  # the exact set that scope may change on this model
+        if sorted(manifest["tensors"]) != expected:
+            raise ValueError(
+                f"artifact tensor list does not match the {len(expected)} tensors that trainable={mode!r} may change"
+            )
         entry = manifest["files"][0]
-        weights_path = root / entry["path"]
         digest = _sha256_file(weights_path)
         if digest != entry["sha256"] or weights_path.stat().st_size != entry["bytes"]:
             raise ValueError(f"{entry['path']}: digest or size mismatch; refusing to load")
-        if any("lora" in name for name in manifest["tensors"]) and not self.use_lora:
-            raise ValueError("this adapter carries LoRA tensors; build the pipeline with use_lora=True")
         from safetensors.torch import load_file
 
         tensors = load_file(str(weights_path))
-        if sorted(tensors) != manifest["tensors"]:
-            raise ValueError("artifact tensor names differ from its manifest")
+        if sorted(tensors) != expected:
+            raise ValueError("artifact tensor names differ from the validated manifest")
         state = self.model.state_dict()
         for key, value in tensors.items():
-            if key not in state:
-                raise ValueError(f"artifact tensor {key} is not part of the model")
             if tuple(value.shape) != tuple(state[key].shape):
                 raise ValueError(f"artifact tensor {key} has shape {tuple(value.shape)}, model has {tuple(state[key].shape)}")
         merged = dict(state)
@@ -936,14 +984,15 @@ class AuroraPipeline:
         allow_download: bool = False,
         require_source: bool = True,
     ) -> AuroraPipeline:
-        manifest = json.loads((Path(artifact_dir) / ARTIFACT_MANIFEST_NAME).read_text(encoding="utf-8"))
-        use_lora = any("lora" in name for name in manifest.get("tensors", []))
+        root = Path(artifact_dir)
+        manifest = json.loads((root / ARTIFACT_MANIFEST_NAME).read_text(encoding="utf-8"))
+        cls.check_artifact_manifest(root, manifest)  # both declared scopes carry LoRA: build with it
         pipeline = cls.from_pretrained(
             device=device,
             weights_dir=weights_dir,
             allow_download=allow_download,
             require_source=require_source,
-            use_lora=use_lora,
+            use_lora=True,
         )
         pipeline.load_artifact(artifact_dir)
         return pipeline

@@ -141,6 +141,23 @@ def test_from_pretrained_refuses_before_model_imports(tmp_path, forbid_model_imp
         AuroraPipeline.from_pretrained(weights_dir=tmp_path, require_source=False)
 
 
+def test_require_source_false_never_stages_even_when_the_manifest_is_present(tmp_path, monkeypatch, forbid_model_imports):
+    """A checkout keeps the committed manifest beside the converted files and no pickles: the converted-only
+    path must not touch the sources at all (it used to fall into stage_missing_files whenever the manifest existed)."""
+    _write_snapshot(tmp_path)
+    for name in (pl.SOURCE_CKPT_NAME, pl.SOURCE_STATIC_NAME):
+        (tmp_path / name).unlink()
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("stage_missing_files must not run with require_source=False")
+
+    monkeypatch.setattr(pl, "stage_missing_files", refuse)
+    with pytest.raises(FileNotFoundError, match="converted file missing"):
+        AuroraPipeline.from_pretrained(weights_dir=tmp_path, require_source=False)
+    with pytest.raises(AssertionError, match="must not run"):
+        AuroraPipeline.from_pretrained(weights_dir=tmp_path)
+
+
 def test_convert_model_refuses_a_wrong_sized_source_before_unpickling(tmp_path, forbid_model_imports):
     (tmp_path / SOURCE_CKPT_NAME).write_bytes(b"not a checkpoint")
     with pytest.raises(ValueError, match="size"):
