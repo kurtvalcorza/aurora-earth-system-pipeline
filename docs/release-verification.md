@@ -143,3 +143,19 @@ runtime, not general estimates.
 ## Current status
 
 **Release-grade.** The `E2E` notebook blob `42fb3883` (committed at `4a828fc`) executed top-to-bottom in a clean Kaggle Tesla T4 runtime on 2026-09-19 (11/11 ok (1 restart after install cell), 283.5 s, 68 files, 1123 MB fetched (Hub snapshot + the 57 pinned WeatherBench 2 objects) and digest-verified inside the notebook) with no repository checkout — the REL1/REL10 supported-runtime evidence this file gates on. The local pre-flight rows above are what preceded it and remain history. Any later change to the carried modules or to the notebook produces a new blob, and the registry returns to **Candidate** until a clean run of that blob is recorded here.
+
+## Supplemental weather and Earth-system forecasting workshop — `tutorials/DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb`
+
+This entry applies only to the supplemental workshop notebook, not the primary tutorial executions above.
+
+### Maintainer-supplied successful Colab run — 2026-09-26
+
+The maintainer supplied the [executed notebook](execution-evidence/2026-09-26/DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb) and authorized merging PR #10 (merge commit `1f768ce`). The file is archived byte-for-byte, SHA-256 `b166e2b78cd8385520b24beb3af3e1016c25b9a25380a811642c50ffdd0c8588`. All 22 code cells have execution counts, 38 saved outputs and zero saved errors. Code-cell sources match commit `8fba5673599ac403eae964f3269748ce053905c7`, tutorial blob `9db1e28127f6bec5886b3608fa8c15df8c6b647a`, apart from Colab-inserted `# @title` lines. Later commits on `main` that touch the notebook (`2bf00ef` (AI User Disclosure)) change only markdown cells; its code cells are identical to the executed revision. This evidence commit does not change tutorial code.
+
+Scope: Default E2E path: `microsoft/aurora` AuroraSmallPretrained at revision `a96afd7ee6d6`, ERA5 via WeatherBench2 at an out-of-distribution 1.5° grid, frozen versus LoRA-adapted rollouts. BYOD was not exercised.
+
+Saved runtime: Python 3.13.15, torch 2.14.0+cu130, microsoft-aurora 2.0.1, xarray 2026.7.0, NumPy 2.1.3, CUDA Tesla T4. Execution reaches the final completion summary. The separate exported files were not supplied, so their bytes/digests were not independently inspected. Code cells 2–22 carry counts 2 to 22 in order; the first code cell (notebook controls) carries 23, so it was re-executed after the run completed. Runtime freshness and absence of other manual reruns are not independently established by the artifact.
+
+Results (sample-sanity measures on the built-in data, not general model rankings): Independent test mean RMSE ratio against persistence, frozen → adapted: 1.568 → 0.914 (6 h), 1.328 → 0.866 (12 h), 1.237 → 0.885 (18 h), 1.294 → 0.991 (24 h); variables beating persistence (of 9), frozen → adapted: 1 → 6, 1 → 8, 1 → 8, 2 → 6. LoRA adapter: 540,672 trainable parameters, best epoch 6, 2,173,200 bytes (SHA-256 `0585b94cfdcf…`); fresh reload parity max absolute difference 0.0 (PASS).
+
+Status remains **Candidate**. Merge approval and this successful default-path run do not close the optional-path (FULL/BYOD) or REL12 qualification gates, and `metadata.dimer.clean_runtime_evidence` in the notebook stays `pending` as authored (editing it would change the verified blob).
