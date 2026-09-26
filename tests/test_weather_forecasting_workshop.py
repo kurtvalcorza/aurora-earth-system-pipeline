@@ -87,6 +87,19 @@ def test_sample_windows_match_the_pinned_corpus():
     assert samples["SAMPLE_WINDOWS"] and "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr" in body()
 
 
+def test_runtime_pins_resolve_together():
+    # zarr 2.x requires numcodecs<0.16, which conflicts with the live numcodecs==0.17.0 pin.
+    pins = notebook_constants()["PINS"]
+    assert "numcodecs==0.17.0" in pins
+    assert not any(pin.startswith("zarr==2.") for pin in pins)
+
+
+def test_every_code_cell_imports_what_it_uses_at_top_level():
+    # json is used from the data-loading cell onwards and must be imported before it.
+    first_json_use = next(i for i, cell in enumerate(code_cells()) if "json." in cell)
+    assert any("import json" in cell for cell in code_cells()[: first_json_use + 1])
+
+
 def test_contract_present():
     text = body()
     for literal in [
