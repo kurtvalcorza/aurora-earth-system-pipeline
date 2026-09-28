@@ -159,3 +159,44 @@ Saved runtime: Python 3.13.15, torch 2.14.0+cu130, microsoft-aurora 2.0.1, xarra
 Results (sample-sanity measures on the built-in data, not general model rankings): Independent test mean RMSE ratio against persistence, frozen → adapted: 1.568 → 0.914 (6 h), 1.328 → 0.866 (12 h), 1.237 → 0.885 (18 h), 1.294 → 0.991 (24 h); variables beating persistence (of 9), frozen → adapted: 1 → 6, 1 → 8, 1 → 8, 2 → 6. LoRA adapter: 540,672 trainable parameters, best epoch 6, 2,173,200 bytes (SHA-256 `0585b94cfdcf…`); fresh reload parity max absolute difference 0.0 (PASS).
 
 Status remains **Candidate**. Merge approval and this successful default-path run do not close the optional-path (FULL/BYOD) or REL12 qualification gates, and `metadata.dimer.clean_runtime_evidence` in the notebook stays `pending` as authored (editing it would change the verified blob).
+
+### Kaggle T4 execution of revision `62f41b1` (PR #12) — 2026-09-28
+
+Executed notebook: [`execution-evidence/2026-09-28/DIMER_Weather_and_Earth_System_Forecasting_Workshop_62f41b1_kaggle-t4-activity.ipynb`](execution-evidence/2026-09-28/DIMER_Weather_and_Earth_System_Forecasting_Workshop_62f41b1_kaggle-t4-activity.ipynb), SHA-256 `db73a098865b243ca08c0c636bd0d9c26f4ae7b51d381f5af02693918c8ba3ea`, archived byte for byte with the executor's [run summary](execution-evidence/2026-09-28/DIMER_Weather_and_Earth_System_Forecasting_Workshop_62f41b1_kaggle-t4-activity.run_summary.json) (SHA-256 `ae6080a6217cbcd471784ecc49eeabc85418e2d96ee5b4b9254409f06bf0e1a1`).
+
+Source match: the executor fetched the notebook from GitHub at `62f41b135146b994a4a3123c996ffc82dd094b19` and verified its Git blob `385da6db6424b92fdec83f82a0e68f08abeed02e` before execution. The only change before Run all was the form toggle `RUN_LONGER_ROLLOUT_ACTIVITY = True` (cell `dimer-weather-workshop-47`); cell ids and order match the committed notebook, and no other source line differs.
+
+Runtime: Kaggle private kernel `kurtvalcorza/dimer-nb2-aurora-weather-pr12-activity` v1, Tesla T4, Python 3.12.13, torch 2.14.0+cu130 after the notebook's pinned install, empty Hugging Face cache at start, no repository checkout. Fresh IPython kernel via nbclient; no restart after the install cell. Run all 306.9 s; export cell re-run 0.3 s. Peak VRAM was not recorded.
+
+Executed cells: 23 of 23 code cells, zero errors. Counts 1–23 in order, except the export cell (`dimer-weather-workshop-51`), which carries 24 because it was re-run once after the completion cell; its first-run outputs are replaced by the re-run's.
+
+Results (sample-sanity measures on the built-in data, not general model rankings):
+
+| Lead | Frozen mean RMSE ratio | Adapted | Variables beating persistence (of 9), frozen → adapted |
+|---|---|---|---|
+| 6 h | 1.568 | 0.914 | 1 → 6 |
+| 12 h | 1.328 | 0.867 | 1 → 8 |
+| 18 h | 1.237 | 0.888 | 1 → 7 |
+| 24 h | 1.294 | 0.997 | 2 → 6 |
+
+- Section 4: the upstream checkpoint (451,339,106 bytes, SHA-256 `f80f78de…`) was audited and converted in this runtime; both converted files matched the pinned digests (`fc03b5fc5764…`, `9bd430b666d9…`).
+- Frozen ratios equal the 2026-09-26 Colab run to six decimals. Adapted ratios differ in the third decimal (e.g. 24 h 0.997 vs 0.991; 18 h 7 vs 8 variables), and the adapter digest differs (`23043cf9…` vs `0585b94c…`). This is consistent with LoRA training on GPU not being bit-reproducible across runtimes (Kaggle Python 3.12 vs Colab Python 3.13); it was not isolated further.
+- LoRA: best epoch 6, 540,672 trainable parameters, adapter 2,173,200 bytes. Freeze `experiment_sha256` `8baa7d685d57…`.
+- Fresh-directory reload: max absolute difference 0.0 / 0.0 (PASS); consumer checks passed (adapter.v1 format, converted-base digests match, `lora` scope, 80 tensors).
+- Longer-rollout activity (validation window, one fixed origin `2020-03-31T06:00`): 6–36 h scored; adapted ratio 0.924 / 0.899 / 0.889 / 0.985 / 0.920 / 0.941; `canonical_results_unchanged: True`.
+- Export re-run: report bundle with 33 files, SHA-256 `7bd78219e2b1…`, `optional_outputs` listing the three activity files. The bundle ZIP itself was written outside `outputs/` and was not retained by the executor; the 33 files under `outputs/` were.
+
+| Journey | Verdict |
+|---|---|
+| Default path (fresh runtime, Run all) | Pass |
+| Section 4 audit and conversion with pinned converted digests | Pass |
+| Freeze → independent test | Pass |
+| Fresh-directory reload with consumer checks | Pass |
+| Longer-rollout activity (36 h) | Pass |
+| Export re-run after the activity | Pass |
+| BYOD NetCDF (valid and invalid) | Not assessed in this run |
+| Repeated Run all in a warm runtime | Not assessed in this run |
+
+Evidence boundary: this is an agent-run Kaggle clean-room execution, not a maintainer-supplied Colab run. The executed notebook and run summary were inspected; the report ZIP bytes were not. Status remains **Candidate**, and `metadata.dimer.clean_runtime_evidence` stays `pending` as authored.
+
+Still open: hosted BYOD NetCDF qualification (valid and invalid); consumption of an exported adapter by `AuroraPipeline.from_artifact`; the 57-object data-pin parity; peak VRAM.

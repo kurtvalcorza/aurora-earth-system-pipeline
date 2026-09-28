@@ -1,0 +1,382 @@
+{
+ "identity": {
+  "repository": "aurora-earth-system-pipeline",
+  "candidate_sha": "62f41b135146b994a4a3123c996ffc82dd094b19",
+  "notebook": "tutorials/DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb",
+  "committed_blob": "385da6db6424b92fdec83f82a0e68f08abeed02e",
+  "fetched_blob_verified": true,
+  "kaggle_docker_image": "gcr.io/kaggle-gpu-images/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461",
+  "kaggle_run_type": "Batch",
+  "os": "Linux-6.12.90+-x86_64-with-glibc2.35",
+  "python": "3.12.13",
+  "cpu_count": 4,
+  "image_versions_before_run": {
+   "torch": "2.10.0+cu128",
+   "numpy": "2.0.2",
+   "transformers": "5.0.0",
+   "tokenizers": "0.22.2",
+   "safetensors": "0.7.0",
+   "huggingface-hub": "1.11.0",
+   "pillow": "11.3.0",
+   "nbclient": "0.10.2",
+   "ipykernel": "6.17.1"
+  },
+  "started": "2026-09-28T16:28:21Z",
+  "nvidia_smi": "Tesla T4, 15360 MiB, 580.159.04\nTesla T4, 15360 MiB, 580.159.04",
+  "hf_cache_clean_at_start": true,
+  "variant": {
+   "param_overrides": {
+    "RUN_LONGER_ROLLOUT_ACTIVITY": true
+   },
+   "export_cell_rerun": "dimer-weather-workshop-51",
+   "patched_notebook_sha256": "55a18d65d78889fd0c5f27e56070676891b707e845496908c5342cd6d172fd1d"
+  }
+ },
+ "runner": {
+  "ok": true,
+  "started": "2026-09-28T16:28:23Z",
+  "passes": [
+   {
+    "attempt": 1,
+    "started": "2026-09-28T16:28:23Z",
+    "run_all_wall_s": 306.9,
+    "export_rerun": {
+     "cell": 51,
+     "execution_count": 24,
+     "wall_s": 0.3
+    },
+    "ok": true,
+    "wall_s": 310.5
+   }
+  ],
+  "wall_s": 310.5,
+  "finished": "2026-09-28T16:33:33Z"
+ },
+ "cells": [
+  {
+   "cell": 4,
+   "status": "ok",
+   "started": "2026-09-28T16:28:24.750382Z",
+   "ended": "2026-09-28T16:28:24.763241Z",
+   "stdout_tail": "{'run_id': '20260928T162824Z-54', 'epochs': 6, 'learning_rate': 0.001, 'trainable': 'lora', 'max_lead_hours': 24, 'future_forecast_hours': 24, 'output_root': '/content/outputs'}\n",
+   "error": null
+  },
+  {
+   "cell": 6,
+   "status": "ok",
+   "started": "2026-09-28T16:28:24.767022Z",
+   "ended": "2026-09-28T16:31:39.504277Z",
+   "stdout_tail": "numpy: preloaded by the host kernel 2.0.2\n{'python': '3.12.13', 'torch': '2.14.0+cu130', 'cuda_available': True, 'gpu': 'Tesla T4', 'microsoft-aurora': '2.0.1', 'xarray': '2026.7.0', 'numpy': '2.0.2'}\n",
+   "error": null
+  },
+  {
+   "cell": 8,
+   "status": "ok",
+   "started": "2026-09-28T16:31:39.508279Z",
+   "ended": "2026-09-28T16:31:39.516685Z",
+   "stdout_tail": "",
+   "error": null
+  },
+  {
+   "cell": 10,
+   "status": "ok",
+   "started": "2026-09-28T16:31:39.520223Z",
+   "ended": "2026-09-28T16:32:00.729731Z",
+   "stdout_tail": "able higher rate limits and faster downloads.\naurora-0.25-small-pretrained.ckpt: reconstructing file:   0%|          |  0.00B /  451MB            aurora-0.25-small-pretrained.ckpt: downloading bytes:           |  0.00B            aurora-0.25-static.pickle: reconstructing file:   0%|          |  0.00B / 12.5MB            aurora-0.25-static.pickle: downloading bytes:           |  0.00B            /tmp/ipykernel_54/3183821408.py:90: DeprecationWarning: numpy.core.numeric is deprecated and has been renamed to numpy._core.numeric. The numpy._core namespace contains private NumPy internals and its use is discouraged, as NumPy internals can change without warning in any release. In practice, most real-world usage of numpy.core is to access functionality in the public NumPy API. If that is the case, use the public NumPy API. If not, you are using NumPy internals. If you would still like to access an internal attribute, use numpy._core.numeric._frombuffer.\n  return super().find_class(module, name)\n{'path': '/root/.cache/huggingface/hub/models--microsoft--aurora/snapshots/a96afd7ee6d65e3bd2d476f3be798a25a56f2296/aurora-0.25-small-pretrained.ckpt', 'bytes': 451339106, 'sha256': 'f80f78de1524a9faba8c9053e4a8ce6a2114ec01cff7f7b4efe9377200d50621', 'revision': 'a96afd7ee6d65e3bd2d476f3be798a25a56f2296', 'converted_base': {'aurora-0.25-small-pretrained.safetensors': 'fc03b5fc5764', 'aurora-0.25-static.safetensors': '9bd430b666d9'}, 'conversion': 'converted in this runtime, digest-verified'}\n",
+   "error": null
+  },
+  {
+   "cell": 12,
+   "status": "ok",
+   "started": "2026-09-28T16:32:00.734132Z",
+   "ended": "2026-09-28T16:32:00.738980Z",
+   "stdout_tail": "{'source': 'gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr', 'window_chunks': {'train-2019-01': 10957, 'train-2019-07': 11048, 'val-2020-04': 11185, 'test-2021-10': 11459}, 'expected_grid': [121, 240], 'analyses_per_window': 8}\n",
+   "error": null
+  },
+  {
+   "cell": 14,
+   "status": "ok",
+   "started": "2026-09-28T16:32:00.742918Z",
+   "ended": "2026-09-28T16:32:13.011987Z",
+   "stdout_tail": ": 8,\n        \"content_sha256\": \"a948dfdff4f73a6e78341dd3b7efc6795a08cd957b90fa3693316e55452baccf\"\n      },\n      \"train-2\": {\n        \"name\": \"train-2019-07\",\n        \"source\": \"ERA5 via WeatherBench2 1.5\\u00b0\",\n        \"first_time\": \"2019-07-01T00:00:00\",\n        \"last_time\": \"2019-07-02T18:00:00\",\n        \"n_steps\": 8,\n        \"content_sha256\": \"72564079766a03709e92b32d39fb32e43368198c7fb68401d40c9dbe24620ebc\"\n      },\n      \"validation\": {\n        \"name\": \"val-2020-04\",\n        \"source\": \"ERA5 via WeatherBench2 1.5\\u00b0\",\n        \"first_time\": \"2020-03-31T00:00:00\",\n        \"last_time\": \"2020-04-01T18:00:00\",\n        \"n_steps\": 8,\n        \"content_sha256\": \"ab086859e1404eeedfa3bafe51cf966e83f21b6c9903b9ea835edfc78e446741\"\n      },\n      \"test\": {\n        \"name\": \"test-2021-10\",\n        \"source\": \"ERA5 via WeatherBench2 1.5\\u00b0\",\n        \"first_time\": \"2021-09-30T00:00:00\",\n        \"last_time\": \"2021-10-01T18:00:00\",\n        \"n_steps\": 8,\n        \"content_sha256\": \"2d9dda7149fadd91c511238440d37046bf9c6c20854f518d69573e11fabcdbc7\"\n      }\n    }\n  },\n  \"evaluation_preflight\": {\n    \"lead_steps\": 4,\n    \"lead_hours\": 24,\n    \"windows\": {\n      \"validation\": {\n        \"analyses\": 8,\n        \"longest_measurable_lead_hours\": 36,\n        \"origins\": [\n          1,\n          2,\n          3\n        ]\n      },\n      \"test\": {\n        \"analyses\": 8,\n        \"longest_measurable_lead_hours\": 36,\n        \"origins\": [\n          1,\n          2,\n          3\n        ]\n      }\n    }\n  }\n}\n",
+   "error": null
+  },
+  {
+   "cell": 16,
+   "status": "ok",
+   "started": "2026-09-28T16:32:13.016190Z",
+   "ended": "2026-09-28T16:32:15.921120Z",
+   "stdout_tail": "<Figure size 1100x400 with 2 Axes><Figure size 1100x400 with 2 Axes><Figure size 1100x400 with 2 Axes><Figure size 1100x400 with 2 Axes><Figure size 1100x400 with 2 Axes>",
+   "error": null
+  },
+  {
+   "cell": 18,
+   "status": "ok",
+   "started": "2026-09-28T16:32:15.926793Z",
+   "ended": "2026-09-28T16:32:15.935245Z",
+   "stdout_tail": "{'unweighted_rmse_K': 2.6920891185307285, 'latitude_weighted_rmse_K': 2.9911232091115294}\n",
+   "error": null
+  },
+  {
+   "cell": 20,
+   "status": "ok",
+   "started": "2026-09-28T16:32:15.938820Z",
+   "ended": "2026-09-28T16:32:17.989634Z",
+   "stdout_tail": "{'base_parameters': 112797584, 'lora_parameters': 540672, 'lora_fraction_percent': 0.47932941542435875, 'device': 'cuda'}\n",
+   "error": null
+  },
+  {
+   "cell": 22,
+   "status": "ok",
+   "started": "2026-09-28T16:32:17.993947Z",
+   "ended": "2026-09-28T16:32:18.248334Z",
+   "stdout_tail": "Validation persistence RMSE:\n2t {'6h': 2.7004, '12h': 3.6936, '18h': 3.2141, '24h': 1.9941}\nmsl {'6h': 261.1796, '12h': 387.503, '18h': 535.6019, '24h': 614.2006}\nz500 {'6h': 236.7974, '12h': 374.0863, '18h': 525.4159, '24h': 628.6764}\n",
+   "error": null
+  },
+  {
+   "cell": 24,
+   "status": "ok",
+   "started": "2026-09-28T16:32:18.251938Z",
+   "ended": "2026-09-28T16:32:21.440612Z",
+   "stdout_tail": "  lead  mean_rmse_ratio_vs_persistence  variables_beating_persistence  of\n0   6h                        1.572999                              1   9\n1  12h                        1.355079                              1   9\n2  18h                        1.245819                              0   9\n3  24h                        1.285941                              1   9<Figure size 800x400 with 1 Axes>",
+   "error": null
+  },
+  {
+   "cell": 27,
+   "status": "ok",
+   "started": "2026-09-28T16:32:21.444420Z",
+   "ended": "2026-09-28T16:32:59.162629Z",
+   "stdout_tail": "{'epoch': 1, 'train_loss': 0.14134077541530132, 'val_loss': 0.100042009105285}\n{'epoch': 2, 'train_loss': 0.08408458344638348, 'val_loss': 0.07940302044153214}\n{'epoch': 3, 'train_loss': 0.068623723462224, 'val_loss': 0.06996069848537445}\n{'epoch': 4, 'train_loss': 0.05939265185346206, 'val_loss': 0.062339840456843376}\n{'epoch': 5, 'train_loss': 0.05384235984335343, 'val_loss': 0.0568055926511685}\n{'epoch': 6, 'train_loss': 0.049367986619472504, 'val_loss': 0.05363894316057364}\n   epoch  train_loss  val_loss                      note\n0      0         NaN  0.184840  frozen model / zero LoRA\n1      1    0.141341  0.100042                       NaN\n2      2    0.084085  0.079403                       NaN\n3      3    0.068624  0.069961                       NaN\n4      4    0.059393  0.062340                       NaN\n5      5    0.053842  0.056806                       NaN\n6      6    0.049368  0.053639                       NaN{'best_epoch': 6, 'trainable_parameters': 540672, 'percent_of_base': 0.47932941542435875, 'training_seconds': 36.45890185600001}\n",
+   "error": null
+  },
+  {
+   "cell": 29,
+   "status": "ok",
+   "started": "2026-09-28T16:32:59.166497Z",
+   "ended": "2026-09-28T16:33:01.992491Z",
+   "stdout_tail": "  lead  frozen_mean_ratio  adapted_mean_ratio  \\\n0   6h           1.572999            0.931588   \n1  12h           1.355079            0.894133   \n2  18h           1.245819            0.903341   \n3  24h           1.285941            0.976054   \n\n   frozen_vars_beating_persistence  adapted_vars_beating_persistence  \n0                                1                                 6  \n1                                1                                 8  \n2                                0                                 7  \n3                                1                                 6  ",
+   "error": null
+  },
+  {
+   "cell": 31,
+   "status": "ok",
+   "started": "2026-09-28T16:33:01.996363Z",
+   "ended": "2026-09-28T16:33:02.376515Z",
+   "stdout_tail": "Experiment frozen: outputs/frozen/frozen_experiment.json experiment_sha256 8baa7d685d57\n",
+   "error": null
+  },
+  {
+   "cell": 33,
+   "status": "ok",
+   "started": "2026-09-28T16:33:02.379907Z",
+   "ended": "2026-09-28T16:33:10.524416Z",
+   "stdout_tail": "  2.671471   \n3        2t  24h          1.804413     3.706666      2.054222      2.867111   \n12      msl   6h        269.141103   414.644570      1.540622    239.311732   \n13      msl  12h        392.725093   584.403593      1.488073    359.841754   \n14      msl  18h        524.715721   699.498966      1.333101    493.939733   \n15      msl  24h        584.746807   771.775758      1.319846    566.236364   \n20        u   6h          3.639071     7.494901      2.059564      3.347901   \n21        u  12h          5.525572     8.692264      1.573097      4.722488   \n22        u  18h          6.892132     9.473617      1.374555      5.913284   \n23        u  24h          7.842764     9.805956      1.250319      6.895149   \n36     z500   6h        249.092144   410.480648      1.647907    292.396913   \n37     z500  12h        392.657946   572.919033      1.459079    377.697455   \n38     z500  18h        529.202028   688.630544      1.301262    484.411327   \n39     z500  24h        605.086818   765.975690      1.265894    570.186922   \n\n    adapted_ratio   unit  \n0        0.664426      K  \n1        0.744075      K  \n2        0.860050      K  \n3        1.588944      K  \n12       0.889168     Pa  \n13       0.916269     Pa  \n14       0.941347     Pa  \n15       0.968345     Pa  \n20       0.919988    m/s  \n21       0.854660    m/s  \n22       0.857976    m/s  \n23       0.879173    m/s  \n36       1.173850  m²/s²  \n37       0.961899  m²/s²  \n38       0.915362  m²/s²  \n39       0.942322  m²/s²  ",
+   "error": null
+  },
+  {
+   "cell": 36,
+   "status": "ok",
+   "started": "2026-09-28T16:33:10.527959Z",
+   "ended": "2026-09-28T16:33:12.190609Z",
+   "stdout_tail": "<Figure size 800x400 with 1 Axes><Figure size 800x400 with 1 Axes><Figure size 800x400 with 1 Axes><Figure size 800x400 with 1 Axes><Figure size 800x400 with 1 Axes>",
+   "error": null
+  },
+  {
+   "cell": 38,
+   "status": "ok",
+   "started": "2026-09-28T16:33:12.194584Z",
+   "ended": "2026-09-28T16:33:23.029734Z",
+   "stdout_tail": "<Figure size 1600x800 with 12 Axes><Figure size 1600x800 with 12 Axes><Figure size 1600x800 with 12 Axes>",
+   "error": null
+  },
+  {
+   "cell": 40,
+   "status": "ok",
+   "started": "2026-09-28T16:33:23.041801Z",
+   "ended": "2026-09-28T16:33:24.050965Z",
+   "stdout_tail": "   lead_hours          origin_time           valid_time  \\\n0           6  2021-10-01T18:00:00  2021-10-02T00:00:00   \n1          12  2021-10-01T18:00:00  2021-10-02T06:00:00   \n2          18  2021-10-01T18:00:00  2021-10-02T12:00:00   \n3          24  2021-10-01T18:00:00  2021-10-02T18:00:00   \n\n   area_weighted_mean_2t_K  area_weighted_mean_msl_Pa  \\\n0               287.441590              101213.995402   \n1               287.058180              101266.881521   \n2               288.555231              101287.985982   \n3               289.184570              101254.441454   \n\n   area_weighted_mean_z500_m2_s2 evaluation_status  \n0                   55712.371210    not-measurable  \n1                   55746.359922    not-measurable  \n2                   55804.175632    not-measurable  \n3                   55836.586293    not-measurable  ",
+   "error": null
+  },
+  {
+   "cell": 42,
+   "status": "ok",
+   "started": "2026-09-28T16:33:24.054609Z",
+   "ended": "2026-09-28T16:33:24.086310Z",
+   "stdout_tail": "{'path': 'adapter.safetensors', 'bytes': 2173200, 'sha256': '23043cf9bceb9d8d6f9b5c3d3f2b30ca93c1118b681b0267e1bd695b2e50f4d3'}\n",
+   "error": null
+  },
+  {
+   "cell": 44,
+   "status": "ok",
+   "started": "2026-09-28T16:33:24.090018Z",
+   "ended": "2026-09-28T16:33:26.404635Z",
+   "stdout_tail": "{'max_abs_surf_diff': 0.0, 'max_abs_atmos_diff': 0.0, 'tolerance': 1e-06, 'status': 'PASS', 'consumer_checks': {'fresh_directory': True, 'format': 'org.valcorza.aurora-earth-system.adapter.v1', 'converted_base_digests_match': True, 'tensor_scope': 'lora', 'n_tensors': 80}}\n",
+   "error": null
+  },
+  {
+   "cell": 47,
+   "status": "ok",
+   "started": "2026-09-28T16:33:26.408727Z",
+   "ended": "2026-09-28T16:33:29.808415Z",
+   "stdout_tail": "<Figure size 800x400 with 1 Axes> lead_hours  frozen_mean_rmse_ratio  adapted_mean_rmse_ratio  frozen_vars_beating_persistence  adapted_vars_beating_persistence  n_origins\n          6                1.551117                 0.924342                                1                                 7          1\n         12                1.367810                 0.898644                                1                                 7          1\n         18                1.230907                 0.889492                                1                                 7          1\n         24                1.264120                 0.985220                                1                                 6          1\n         30                1.128179                 0.920418                                2                                 7          1\n         36                1.096134                 0.941031                                2                                 7          1\n{'window_role': 'validation', 'lead_hours': 36, 'origin_times': ['2020-03-31T06:00:00'], 'canonical_results_unchanged': True}\n",
+   "error": null
+  },
+  {
+   "cell": 51,
+   "status": "ok",
+   "started": "2026-09-28T16:33:30.174387Z",
+   "ended": "2026-09-28T16:33:30.514458Z",
+   "stdout_tail": "{'experiment_manifest': 'outputs/provenance/experiment_manifest.json', 'report_bundle': '/content/outputs_DIMER_Aurora_Weather_Workshop_Report_20260928T162824Z-54.zip', 'report_sha256': '7bd78219e2b199d36ebb4452e93d11127709e6a8ca47a8b10b1e291297af89b2', 'files_in_bundle': 33, 'optional_outputs': ['activity/longer_rollout_36h_validation/lead_skill.png', 'activity/longer_rollout_36h_validation/lead_table.csv', 'activity/longer_rollout_36h_validation/metrics.json']}\n",
+   "error": null
+  },
+  {
+   "cell": 57,
+   "status": "ok",
+   "started": "2026-09-28T16:33:30.159924Z",
+   "ended": "2026-09-28T16:33:30.170928Z",
+   "stdout_tail": "                                              value\nnotebook_spec                                                     2.1\nprofile                                                           E2E\nmode                                                         WORKSHOP\nmodel                        microsoft/aurora — AuroraSmallPretrained\nmodel_revision               a96afd7ee6d65e3bd2d476f3be798a25a56f2296\nrun_id                                            20260928T162824Z-54\ndevice                                                           cuda\ndataset                                   ERA5 via WeatherBench2 1.5°\ntutorial_resolution_degrees                                       1.5\ntraining_resolution_degrees                                      0.25\nbest_epoch                                                          6\ntrainable_parameters                                           540672\nadapter_bytes                                                 2173200\nreload_status                                                    PASS\nevaluation_lead_hours                                              24\nlonger_rollout_activity                                           run\noutput_directory                                     /content/outputs\nrelease_status                                              candidateNotebook complete. Interpret all metrics as sample-sanity evidence on the small Aurora checkpoint at an out-of-distribution 1.5° grid, not as operational or native-resolution Aurora skill.\n",
+   "error": null
+  }
+ ],
+ "preserved_outputs": {
+  "workshop_summary.json": {
+   "bytes": 1510,
+   "sha256": "81d5d841fed8393cfaa53857e03131a5f4512c92a6316a58738159f4f9b82cb1"
+  },
+  "adaptation/training_history.json": {
+   "bytes": 6933,
+   "sha256": "b2de6fb289a6f9346ab226e53e30513c20635c4383af78eb443e7832ca092353"
+  },
+  "adaptation/validation_metrics.json": {
+   "bytes": 6997,
+   "sha256": "34dd7481714f77ddc55ca2a267898ca9690f1e98ab7b7b7ecc0b009fb2ce0ed4"
+  },
+  "data/dataset_manifest.json": {
+   "bytes": 3590,
+   "sha256": "f1fa2c6e626b56338f12a38d11885c98eea64b7e322fda18e8ff182c7807a832"
+  },
+  "baseline/validation_persistence.json": {
+   "bytes": 3381,
+   "sha256": "82b7586ba81c6a49632e49b760a0c6e3e12e88e78900fc16359d0b925140c208"
+  },
+  "future/forecast_fields.npz": {
+   "bytes": 356426,
+   "sha256": "aed9da6451ba88fd1d62441ec17f06785ef57ad30e7fbd511a3abd99de855a0b"
+  },
+  "future/forecast_summary.csv": {
+   "bytes": 585,
+   "sha256": "e8f269525c29c271fdb69c01958e6db0c6c1dbf07013fe06e444d014a9604cfd"
+  },
+  "frozen_model/validation_metrics.json": {
+   "bytes": 6986,
+   "sha256": "278e477d54ce4ea3921d20a9ed7e24c5c2196cb2de001c675edd28a6fbc280e6"
+  },
+  "activity/longer_rollout_36h_validation/lead_skill.png": {
+   "bytes": 61802,
+   "sha256": "a3c0fb809e5d28e6c32c1d5fd73a6841aaee5a35930536bba7dfac470cf17df5"
+  },
+  "activity/longer_rollout_36h_validation/lead_table.csv": {
+   "bytes": 410,
+   "sha256": "9e9d191bee560d5bc04fe540b8fbec785f0e02e5d6d3dc999f34106ade798f07"
+  },
+  "activity/longer_rollout_36h_validation/metrics.json": {
+   "bytes": 22088,
+   "sha256": "9d9cff00bf4a96476966674103817a7f0a5fb299a313d53c30d5fb835e0f91be"
+  },
+  "test/adapted_metrics.json": {
+   "bytes": 7005,
+   "sha256": "557dc83dc99cb15036389809def71f4f81db7f9e532e46f208d956e5bd277c66"
+  },
+  "test/comparison.csv": {
+   "bytes": 317,
+   "sha256": "88424cb2219e1a32dd6d35c8f34c3000baa7d712a739f246ef0ad2a8cac95289"
+  },
+  "test/frozen_metrics.json": {
+   "bytes": 6990,
+   "sha256": "5591a46d5cdf020df46346651e05b34d2477bc0482283ef02e71786c5c16ad97"
+  },
+  "test/variable_metrics.csv": {
+   "bytes": 4273,
+   "sha256": "7d88d781afb177182ccf85aeb26dbc65a3958ae485e4a52714ef39e4d45f3640"
+  },
+  "provenance/experiment_manifest.json": {
+   "bytes": 19096,
+   "sha256": "fee88a66e380603e3b76d74140ab5e692e3ef7e622413cd842371ba915b053b9"
+  },
+  "figures/lead_rmse_2t.png": {
+   "bytes": 77705,
+   "sha256": "bfa3d1d7eb5434e8f2d13e12becfa77c96fc0d9dfce3eb0ce0abd12e34fc1361"
+  },
+  "figures/lead_rmse_msl.png": {
+   "bytes": 67297,
+   "sha256": "52d8b2dea6601e486441d451754ab77e868057dabf0875ef5ebc916f7e5774f6"
+  },
+  "figures/lead_rmse_u.png": {
+   "bytes": 60454,
+   "sha256": "fe3fc4ca0a3d4a75757b7d8392132cb3ea5033661e44cd4dab67e5e99c3f0806"
+  },
+  "figures/lead_rmse_z500.png": {
+   "bytes": 67312,
+   "sha256": "9879a4326f88180aef778b26022ed72cc536582521e08251b15409f130a1a2b3"
+  },
+  "figures/spatial_24h_2t.png": {
+   "bytes": 1304750,
+   "sha256": "465a3bb9dc1e5d3b19fa3a02dd5428531bc405a08ff20bc1bbfc0d67e3a8c54b"
+  },
+  "figures/spatial_24h_msl.png": {
+   "bytes": 1101995,
+   "sha256": "d460caea6dc7496b954b043b36a91fecde61caf4855b64418ecefd9844733d68"
+  },
+  "figures/spatial_24h_z500.png": {
+   "bytes": 952824,
+   "sha256": "95661de16145408331793a00a88e0df1462e6a259a6275844f7744707a2cf732"
+  },
+  "figures/state_2_m_temperature_[k].png": {
+   "bytes": 86397,
+   "sha256": "d14e726176e2d328a8e643b5ee77ff4b8d6d662fda9a5808c00afa3fa18728f4"
+  },
+  "figures/state_500_hpa_geopotential_[m²_s²].png": {
+   "bytes": 83327,
+   "sha256": "f59480b196f3cb240c7bf5878928c931d25810744854e797220ccf2d46c6538d"
+  },
+  "figures/state_850_hpa_zonal_wind_[m_s].png": {
+   "bytes": 101357,
+   "sha256": "7432a865536e7d5e0803b4f347811af0ea8ea861d641ead171c16881d15fc234"
+  },
+  "figures/state_land-sea_mask.png": {
+   "bytes": 66866,
+   "sha256": "9b9178de43db3e444df6fbc43e048bec583e18d27a2f3fab4c7f37d9eaae1a83"
+  },
+  "figures/state_mean_sea-level_pressure_[pa].png": {
+   "bytes": 88904,
+   "sha256": "b04d90e5977d4d4eaf40d6007efdb5300f28d137ed5e056e6e2678b0a82f7fc8"
+  },
+  "figures/test_mean_skill.png": {
+   "bytes": 57668,
+   "sha256": "4ddaf41a2d00fc5dffa072a141bdbf896884d48fa58c3876b079ba4b55137a9e"
+  },
+  "figures/validation_frozen_skill.png": {
+   "bytes": 44249,
+   "sha256": "f8f801aa8abd36c90c9b1d9a325a36bbf475c721a39cca581ff4000a32545649"
+  },
+  "frozen/frozen_experiment.json": {
+   "bytes": 30383,
+   "sha256": "beb520cbbff369507b7af688f7fc20e4820d3f0f10f0b3966b1ab22ab0645111"
+  },
+  "artifacts/aurora_lora/adapter.safetensors": {
+   "bytes": 2173200,
+   "sha256": "23043cf9bceb9d8d6f9b5c3d3f2b30ca93c1118b681b0267e1bd695b2e50f4d3"
+  },
+  "artifacts/aurora_lora/manifest.json": {
+   "bytes": 8400,
+   "sha256": "6118fa90ba689ebbaeb42c806f5ffbdddc7e549528819f129a721720351b7cf0"
+  }
+ },
+ "staged_weights": [],
+ "executor_torch_after_run": {
+  "torch": "2.14.0+cu130",
+  "cuda": "13.0",
+  "device": "Tesla T4"
+ },
+ "finished": "2026-09-28T16:33:35Z"
+}
