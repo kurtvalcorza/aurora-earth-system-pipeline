@@ -180,7 +180,7 @@ Results (sample-sanity measures on the built-in data, not general model rankings
 | 24 h | 1.294 | 0.997 | 2 → 6 |
 
 - Section 4: the upstream checkpoint (451,339,106 bytes, SHA-256 `f80f78de…`) was audited and converted in this runtime; both converted files matched the pinned digests (`fc03b5fc5764…`, `9bd430b666d9…`).
-- Frozen ratios equal the 2026-09-26 Colab run to six decimals. Adapted ratios differ in the third decimal (e.g. 24 h 0.997 vs 0.991; 18 h 7 vs 8 variables), and the adapter digest differs (`23043cf9…` vs `0585b94c…`). This is consistent with LoRA training on GPU not being bit-reproducible across runtimes (Kaggle Python 3.12 vs Colab Python 3.13); it was not isolated further.
+- Frozen ratios equal the 2026-09-26 Colab run to six decimals. Adapted ratios differ in the third decimal (e.g. 24 h 0.997 vs 0.991; 18 h 7 vs 8 variables), and the adapter digest differs (`23043cf9…` vs `0585b94c…`). Correction (2026-09-28, after the Colab run below): this is not cross-runtime nondeterminism. The Colab run of the same notebook blob reproduces this run's losses, metrics and adapter digest exactly. See the next section.
 - LoRA: best epoch 6, 540,672 trainable parameters, adapter 2,173,200 bytes. Freeze `experiment_sha256` `8baa7d685d57…`.
 - Fresh-directory reload: max absolute difference 0.0 / 0.0 (PASS); consumer checks passed (adapter.v1 format, converted-base digests match, `lora` scope, 80 tensors).
 - Longer-rollout activity (validation window, one fixed origin `2020-03-31T06:00`): 6–36 h scored; adapted ratio 0.924 / 0.899 / 0.889 / 0.985 / 0.920 / 0.941; `canonical_results_unchanged: True`.
@@ -198,5 +198,32 @@ Results (sample-sanity measures on the built-in data, not general model rankings
 | Repeated Run all in a warm runtime | Not assessed in this run |
 
 Evidence boundary: this is an agent-run Kaggle clean-room execution, not a maintainer-supplied Colab run. The executed notebook and run summary were inspected; the report ZIP bytes were not. Status remains **Candidate**, and `metadata.dimer.clean_runtime_evidence` stays `pending` as authored.
+
+Still open: hosted BYOD NetCDF qualification (valid and invalid); consumption of an exported adapter by `AuroraPipeline.from_artifact`; the 57-object data-pin parity; peak VRAM.
+
+### Maintainer-supplied Colab execution of `main` at `4f4fe8e` — 2026-09-28
+
+Executed notebook: [`execution-evidence/2026-09-28/DIMER_Weather_and_Earth_System_Forecasting_Workshop_4f4fe8e_colab-default.ipynb`](execution-evidence/2026-09-28/DIMER_Weather_and_Earth_System_Forecasting_Workshop_4f4fe8e_colab-default.ipynb), SHA-256 `011fec14df140472538b1152f663b695cfe3de252f85e01666078e6160a013e7`, archived byte for byte (run id `20260928T214804Z-851`).
+
+Source match: all 59 cell ids and their order match the notebook at `4f4fe8e` (blob `385da6db6424b92fdec83f82a0e68f08abeed02e`, unchanged since `62f41b1`). No code-cell source line differs, and every form control is at its default.
+
+Runtime: Google Colab, Tesla T4, Python 3.13.15, torch 2.14.0+cu130, microsoft-aurora 2.0.1, xarray 2026.7.0, NumPy 2.1.3 (the same stack as the 2026-09-26 run). Peak VRAM was not recorded.
+
+Executed cells: 23 of 23 code cells, execution counts 1–23 in order, zero errors. The artifact is consistent with a single Run all; runtime freshness is not independently established by the file.
+
+Results: the independent-test comparison, per-variable table, training history, best epoch (6), adapter SHA-256 `23043cf9bceb…` and reload parity (0.0 / 0.0, consumer checks PASS) are identical to the Kaggle T4 run of `62f41b1` above. Section 4 re-converted the base in this runtime and verified the pinned converted digests. Freeze `experiment_sha256` `eefe721001a2…`; it differs from the Kaggle run's (`8baa7d685d57…`) because the digested record includes the measured training time (37.18 s here, 36.46 s on Kaggle). The export listed a 33-file report bundle, SHA-256 `057b5ce69959…`; the ZIP bytes were not supplied.
+
+Comparison with the 2026-09-26 Colab run (pre-fix notebook, same software stack): frozen results are identical. The LoRA training history is identical through epoch 2 and differs from epoch 3 at about 1e-9 (e.g. epoch-3 train loss 0.068623723462224 vs 0.06862372159957886). That small drift grows to third-decimal differences in the adapted test ratios (e.g. 24 h 0.997 vs 0.991) and a different adapter digest (`23043cf9…` vs `0585b94c…`). Two runtimes (Kaggle Python 3.12, Colab Python 3.13) agree exactly on the new blob, so the drift most likely comes from the notebook change in PR #12 rather than the runtime. Which change causes it was not isolated. It is a numerical change of this size, not a change in method.
+
+| Journey | Verdict |
+|---|---|
+| Default path (Run all) | Pass |
+| Section 4 audit and conversion with pinned converted digests | Pass |
+| Freeze → independent test | Pass |
+| Fresh-directory reload with consumer checks | Pass |
+| Longer-rollout activity | Not assessed in this run ("Activity not run"); covered by the Kaggle run above |
+| BYOD NetCDF (valid and invalid) | Not assessed in this run |
+
+Evidence boundary: saved outputs were inspected; execution was not independently repeated. Status remains **Candidate**, and `metadata.dimer.clean_runtime_evidence` stays `pending` as authored.
 
 Still open: hosted BYOD NetCDF qualification (valid and invalid); consumption of an exported adapter by `AuroraPipeline.from_artifact`; the 57-object data-pin parity; peak VRAM.
