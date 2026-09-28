@@ -1724,7 +1724,7 @@ evaluation:
 ```markdown
 | Notebook | Profile | Mode | Capability | Runtime | Sample | BYOD | Run-all | Status |
 |---|---|---|---|---|---|---|---|---|
-| `DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb` | `E2E` | `WORKSHOP` | Aurora short-range global weather forecasting + LoRA adaptation | T4 | four real ERA5 / WeatherBench 2 windows at 1.5° | NetCDF | pending | candidate |
+| `DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb` | `E2E` | `WORKSHOP` | Aurora short-range global weather forecasting + LoRA adaptation | T4 | four real ERA5 / WeatherBench 2 windows at 1.5° | NetCDF | Kaggle T4 Run all recorded at `62f41b1` (2026-09-28; BYOD not run) | candidate |
 ```
 
 ---
