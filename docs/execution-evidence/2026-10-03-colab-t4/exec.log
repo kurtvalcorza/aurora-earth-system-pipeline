@@ -1,0 +1,120 @@
+[colab] Parsing notebook '/home/kurt/colab-runs/aurora-earth-system-pipeline-a59bed4-272cbc/aurora_earth_system_colab_a59bed4_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/14 - Infrastructure: check the runtime and disk; create a fresh run directory...
+{'gpu': 'Tesla T4, 15360 MiB', 'kernel_python': '3.13.15', 'run_directory': '/content/outputs/aurora_earth_system/4a46a1059c8a', 'weights': '/content/weights', 'environment': '/tmp/aurora_earth_system_env_4a46a1059c8a', 'free_gib': {'weights': 193.2, 'environment': 193.2}}
+[colab] Executing cell 2/14 - Infrastructure: write and verify the carried package, stage runner, lock and manifests...
+{'carried_files': 9, 'verified': True, 'repository': 'kurtvalcorza/aurora-earth-system-pipeline', 'revision': '46d498c3a7f452971966dccae8cd89d6d2ae9a61', 'generator': 'build_notebook.py/3.0'}
+[colab] Executing cell 3/14 - Infrastructure: install the locked runtime into an isolated environment and define the stage runner...
+{'notebook_source': '46d498c3a7f452971966dccae8cd89d6d2ae9a61', 'python': '3.12.12', 'torch': '2.14.0+cu130', 'timm': '1.0.29', 'xarray': '2026.7.0', 'numcodecs': '0.17.0', 'cuda': True, 'locked_packages': 69, 'environment': '/tmp/aurora_earth_system_env_4a46a1059c8a/venv', 'setup_seconds': 80}
+[colab] Executing cell 4/14 - Infrastructure: stage and digest-verify the pinned snapshot...
+Running stage 'weights' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/weights.log
+{'model_id': 'microsoft/aurora', 'revision': 'a96afd7ee6d65e3bd2d476f3be798a25a56f2296', 'license': 'mit', 'files': 3, 'total_bytes': 463799373}
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+{'weights_dir': '/content/weights/aurora-0.25-small', 'fetched': ['README.md', 'aurora-0.25-small-pretrained.ckpt', 'aurora-0.25-static.pickle']}
+{'verified_files': 3, 'converted_present': False}
+{'pickle_audit': 'aurora-0.25-small-pretrained.ckpt', 'globals': ['collections.OrderedDict', 'torch.FloatStorage', 'torch._utils._rebuild_tensor_v2'], 'violations': [], 'audit_sha256': 'e7b998d087a5dcad...'}
+{'pickle_audit': 'aurora-0.25-static.pickle', 'globals': ['numpy.core.numeric._frombuffer', 'numpy.dtype'], 'violations': [], 'audit_sha256': 'aeec283f2dbb5861...'}
+{'converted': 'aurora-0.25-small-pretrained.safetensors', 'bytes': 451230408, 'sha256': 'fc03b5fc5764e08e...'}
+{'converted': 'aurora-0.25-static.safetensors', 'bytes': 12459136, 'sha256': '9bd430b666d9267a...'}
+{'conversion': 'converted in this runtime in 13.62 s', 'served_from_pickle': False}
+{'stage': 'weights', 'status': 'ok', 'seconds': 23.5}
+[colab] Executing cell 5/14 - aurora_earth_system-18...
+Running stage 'runtime' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/runtime.log
+{'python': '3.12.12', 'versions_match_lock': True, 'device': 'cuda', 'gpu': 'Tesla T4', 'float': 'float32'}
+{'versions': {'torch': '2.14.0', 'microsoft-aurora': '2.0.1', 'timm': '1.0.29', 'einops': '0.8.2', 'xarray': '2026.7.0', 'netcdf4': '1.7.4', 'numcodecs': '0.17.0', 'numpy': '2.5.3', 'safetensors': '0.8.0', 'huggingface-hub': '1.32.0'}}
+{'ceilings': {'grid': 'H in 17..721 latitudes (90 → -90, with poles; H % 4 in (0, 1)), W in 32..1440 longitudes (0 → 360, W % 4 == 0)', 'levels': [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000], 'time_steps': [3, 64], 'timestep_hours': 6, 'history_steps': 2, 'rollout_steps': [1, 8]}}
+{'stage': 'runtime', 'status': 'ok', 'seconds': 1.6}
+[colab] Executing cell 6/14 - aurora_earth_system-20...
+Running stage 'data' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/data.log
+{'data_source': 'ERA5 via WeatherBench 2 (1.5°, GCS bucket weatherbench2)', 'n_windows': 4, 'grid': (121, 240), 'steps_per_window': [8, 8, 8, 8], 'forecast_origins': 24}
+{'time_span': ['2018-12-31T00:00:00', '2021-10-01T18:00:00'], 'digest': '4ee4be1143c89f55...'}
+{'roles': {'train': ['train-2019-01', 'train-2019-07'], 'validation': 'val-2020-04', 'test': 'test-2021-10'}}
+{'settings': {'origin': 1, 'rollout_steps': 4, 'max_lead_steps': 4}, 'steps_needed_for_these_settings': 6, 'test_window_steps': 8, 'new_origin_section_10': 3, 'verdict': 'accepted'}
+{'2t_mean_K_by_window': {'train-2019-01': 277.34, 'train-2019-07': 281.19, 'val-2020-04': 277.44, 'test-2021-10': 279.24}}
+{'sample_netcdf': '/content/outputs/aurora_earth_system/4a46a1059c8a/outputs/aurora_earth_system_sample_window.nc', 'steps': 6, 'megabytes': 48.5, 'note': 'the shortest window that completes every stage at these settings'}
+{'validation': 'variable names, array shapes, grid monotonicity and spacing, 6-hour time spacing, finiteness and physical ranges only. Nothing checks that the fields are dynamically consistent, that the analysis is real, or that the resolution is one the model was trained on -- a smooth random field within range is forecast without complaint'}
+{'probe': 'wrong pressure levels', 'rejected': 'levels must be exactly (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000), got (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)'}
+{'probe': 'odd longitude count', 'rejected': 'the number of longitudes (239) must be a multiple of the patch size 4'}
+{'probe': 'implausible temperature', 'rejected': 'surf/2t has values outside the plausible range (150.0, 350.0) K'}
+{'probe': 'irregular time spacing', 'rejected': 'times must be spaced exactly 6 h apart (2021-10-01 12:00:00 -> 2030-01-01 00:00:00)'}
+{'probe': '5 steps for these settings', 'rejected': 'window has 5 6-hourly steps; ROLLOUT_STEPS = 4 and MAX_LEAD_STEPS = 4 need at least 6 (2 history steps + 4 lead steps). Supply a longer window, or lower ROLLOUT_STEPS / MAX_LEAD_STEPS so that 2 + max(ROLLOUT_STEPS, MAX_LEAD_STEPS) <= 5'}
+{'stage': 'data', 'status': 'ok', 'seconds': 16.8}
+[colab] Executing cell 7/14 - aurora_earth_system-23...
+Running stage 'rollout' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/rollout.log
+{'origin_time': '2021-09-30T06:00:00', 'shape': (120, 240), 'seconds': 1.56, 'adapted': False, 'lora_b_max_abs': 0.0, 'device': 'cuda'}
+{'lead_hours': 6, 'valid_time': '2021-09-30T12:00:00', '2t_mean_K': 279.93, 'msl_mean_Pa': 100942.3, 'z500_mean': 54367.2}
+{'lead_hours': 12, 'valid_time': '2021-09-30T18:00:00', '2t_mean_K': 279.834, 'msl_mean_Pa': 100980.2, 'z500_mean': 54440.6}
+{'lead_hours': 18, 'valid_time': '2021-10-01T00:00:00', '2t_mean_K': 279.87, 'msl_mean_Pa': 101014.8, 'z500_mean': 54476.5}
+{'lead_hours': 24, 'valid_time': '2021-10-01T06:00:00', '2t_mean_K': 279.987, 'msl_mean_Pa': 101060.5, 'z500_mean': 54506.7}
+{'repeat_identical': True, 'units': {'2t': 'K', '10u': 'm/s', '10v': 'm/s', 'msl': 'Pa', 't': 'K', 'u': 'm/s', 'v': 'm/s', 'q': 'kg/kg', 'z': 'm²/s²'}}
+{'stage': 'rollout', 'status': 'ok', 'seconds': 12.7}
+[colab] Executing cell 8/14 - aurora_earth_system-26...
+Running stage 'frozen' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/frozen.log
+{'persistence_only': {'2t': {'6h': 2.666, '12h': 3.629, '18h': 3.106, '24h': 1.804}, 'msl': {'6h': 269.141, '12h': 392.725, '18h': 524.716, '24h': 584.747}, 'z500': {'6h': 249.092, '12h': 392.658, '18h': 529.202, '24h': 605.087}}}
+{'frozen_model_seconds': 3.0, 'origins': 3, 'metric': 'latitude-weighted RMSE (cos-lat weights, unit mean); atmospheric variables averaged over the 13 levels', 'adapted': False}
+{'2t': {'6h': {'model': 2.459, 'persistence': 2.666, 'skill': 0.922}, '12h': {'model': 3.243, 'persistence': 3.629, 'skill': 0.894}, '18h': {'model': 3.531, 'persistence': 3.106, 'skill': 1.137}, '24h': {'model': 3.707, 'persistence': 1.804, 'skill': 2.054}}}
+{'10u': {'6h': {'model': 2.715, 'persistence': 1.962, 'skill': 1.384}, '12h': {'model': 3.625, 'persistence': 2.898, 'skill': 1.251}, '18h': {'model': 4.087, 'persistence': 3.505, 'skill': 1.166}, '24h': {'model': 4.42, 'persistence': 3.919, 'skill': 1.128}}}
+{'msl': {'6h': {'model': 414.645, 'persistence': 269.141, 'skill': 1.541}, '12h': {'model': 584.404, 'persistence': 392.725, 'skill': 1.488}, '18h': {'model': 699.499, 'persistence': 524.716, 'skill': 1.333}, '24h': {'model': 771.776, 'persistence': 584.747, 'skill': 1.32}}}
+{'t': {'6h': {'model': 2.35, 'persistence': 1.363, 'skill': 1.724}, '12h': {'model': 2.914, 'persistence': 2.028, 'skill': 1.437}, '18h': {'model': 3.241, 'persistence': 2.405, 'skill': 1.347}, '24h': {'model': 3.448, 'persistence': 2.622, 'skill': 1.315}}}
+{'z500': {'6h': {'model': 410.481, 'persistence': 249.092, 'skill': 1.648}, '12h': {'model': 572.919, 'persistence': 392.658, 'skill': 1.459}, '18h': {'model': 688.631, 'persistence': 529.202, 'skill': 1.301}, '24h': {'model': 765.976, 'persistence': 605.087, 'skill': 1.266}}}
+{'frozen_summary': {'6h': {'mean_skill': 1.568, 'variables_beating_persistence': '1/9'}, '12h': {'mean_skill': 1.328, 'variables_beating_persistence': '1/9'}, '18h': {'mean_skill': 1.237, 'variables_beating_persistence': '1/9'}, '24h': {'mean_skill': 1.294, 'variables_beating_persistence': '2/9'}}}
+{'stage': 'frozen', 'status': 'ok', 'seconds': 13.7}
+[colab] Executing cell 9/14 - aurora_earth_system-29...
+Running stage 'adapt' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/adapt.log
+{'starts_from': 'the pretrained model, built from the verified files in this process', 'adapted': False, 'lora_b_max_abs': 0.0, 'device': 'cuda'}
+{'epoch': 0, 'train_loss': None, 'val_loss': 0.1848, 'val_skill_6h': {'2t': 0.897, 'msl': 1.593, 'z500': 1.665}, 'note': 'frozen model (LoRA zero-initialised)'}
+{'epoch': 1, 'train_loss': 0.1409, 'val_loss': 0.0998, 'val_skill_6h': {'2t': 0.769, 'msl': 1.094, 'z500': 1.406}}
+{'epoch': 2, 'train_loss': 0.0839, 'val_loss': 0.0777, 'val_skill_6h': {'2t': 0.761, 'msl': 0.98, 'z500': 1.324}}
+{'epoch': 3, 'train_loss': 0.0651, 'val_loss': 0.0647, 'val_skill_6h': {'2t': 0.696, 'msl': 0.97, 'z500': 1.294}}
+{'epoch': 4, 'train_loss': 0.0555, 'val_loss': 0.0581, 'val_skill_6h': {'2t': 0.709, 'msl': 0.929, 'z500': 1.249}}
+{'epoch': 5, 'train_loss': 0.0503, 'val_loss': 0.0538, 'val_skill_6h': {'2t': 0.672, 'msl': 0.889, 'z500': 1.236}}
+{'epoch': 6, 'train_loss': 0.0468, 'val_loss': 0.0518, 'val_skill_6h': {'2t': 0.722, 'msl': 0.869, 'z500': 1.224}}
+{'trainable_parameters': 540672, 'total_parameters': 113338256, 'training_samples': 12, 'best_epoch': 6, 'seconds': 47.5, 'device': 'cuda'}
+{'loss_scales': {'2t': 10.0, '10u': 5.0, '10v': 5.0, 'msl': 1000.0, 't': 10.0, 'u': 15.0, 'v': 15.0, 'q': 0.004, 'z': 25000.0}}
+{'artifact': '/content/outputs/aurora_earth_system/4a46a1059c8a/outputs/aurora_earth_system_adapter', 'format': 'org.valcorza.aurora-earth-system.adapter.v1', 'tensors': 80, 'bytes': 2173200, 'sha256': '27f6cd0a03675a93...'}
+{'stage': 'adapt', 'status': 'ok', 'seconds': 58.8}
+[colab] Executing cell 10/14 - aurora_earth_system-32...
+Running stage 'evaluate' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/evaluate.log
+{'2t': {'6h': {'persistence': 2.6659, 'frozen': 2.4592, 'adapted': 1.8409, 'skill_frozen': 0.922, 'skill_adapted': 0.691}, '12h': {'persistence': 3.6286, 'frozen': 3.2428, 'adapted': 2.7129, 'skill_frozen': 0.894, 'skill_adapted': 0.748}, '18h': {'persistence': 3.1062, 'frozen': 3.5305, 'adapted': 2.6231, 'skill_frozen': 1.137, 'skill_adapted': 0.844}, '24h': {'persistence': 1.8044, 'frozen': 3.7067, 'adapted': 2.6992, 'skill_frozen': 2.054, 'skill_adapted': 1.496}}}
+{'msl': {'6h': {'persistence': 269.1411, 'frozen': 414.6446, 'adapted': 231.5787, 'skill_frozen': 1.541, 'skill_adapted': 0.86}, '12h': {'persistence': 392.7251, 'frozen': 584.4036, 'adapted': 341.7145, 'skill_frozen': 1.488, 'skill_adapted': 0.87}, '18h': {'persistence': 524.7157, 'frozen': 699.499, 'adapted': 471.0765, 'skill_frozen': 1.333, 'skill_adapted': 0.898}, '24h': {'persistence': 584.7468, 'frozen': 771.7758, 'adapted': 541.8939, 'skill_frozen': 1.32, 'skill_adapted': 0.927}}}
+{'z500': {'6h': {'persistence': 249.0921, 'frozen': 410.4806, 'adapted': 286.958, 'skill_frozen': 1.648, 'skill_adapted': 1.152}, '12h': {'persistence': 392.6579, 'frozen': 572.919, 'adapted': 362.7652, 'skill_frozen': 1.459, 'skill_adapted': 0.924}, '18h': {'persistence': 529.202, 'frozen': 688.6305, 'adapted': 463.273, 'skill_frozen': 1.301, 'skill_adapted': 0.875}, '24h': {'persistence': 605.0868, 'frozen': 765.9757, 'adapted': 542.2227, 'skill_frozen': 1.266, 'skill_adapted': 0.896}}}
+{'u': {'6h': {'persistence': 3.6391, 'frozen': 7.4949, 'adapted': 3.3092, 'skill_frozen': 2.06, 'skill_adapted': 0.909}, '12h': {'persistence': 5.5256, 'frozen': 8.6923, 'adapted': 4.6881, 'skill_frozen': 1.573, 'skill_adapted': 0.848}, '18h': {'persistence': 6.8921, 'frozen': 9.4736, 'adapted': 5.8889, 'skill_frozen': 1.375, 'skill_adapted': 0.854}, '24h': {'persistence': 7.8428, 'frozen': 9.806, 'adapted': 6.8542, 'skill_frozen': 1.25, 'skill_adapted': 0.874}}}
+{'6h': {'frozen_mean_skill': 1.568, 'adapted_mean_skill': 0.901, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 6}}
+{'12h': {'frozen_mean_skill': 1.328, 'adapted_mean_skill': 0.847, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 8}}
+{'18h': {'frozen_mean_skill': 1.237, 'adapted_mean_skill': 0.865, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 8}}
+{'24h': {'frozen_mean_skill': 1.294, 'adapted_mean_skill': 0.965, 'beating_persistence_frozen': 2, 'beating_persistence_adapted': 6}}
+{'outcome': 'the adapted model beats the frozen model at 6h', 'lead': '6h', 'adapted_mean_skill_below_frozen': True, 'more_variables_beat_persistence': True, 'default_configuration': True, 'report': 'outputs/aurora_earth_system_evaluation_report.json'}
+{'stage': 'evaluate', 'status': 'ok', 'seconds': 15.0}
+[colab] Executing cell 11/14 - aurora_earth_system-35...
+Running stage 'forecast' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/forecast.log
+{'origin_index': 3, 'origin_time': '2021-09-30T18:00:00', 'adapted': True, 'shape': (120, 240)}
+{'lead_hours': 6, 'valid_time': '2021-10-01T00:00:00', '2t_mean_K': 278.802, '2t_rmse_vs_analysis': 1.792, 'note': 'sanity check, not an evaluation'}
+{'lead_hours': 12, 'valid_time': '2021-10-01T06:00:00', '2t_mean_K': 278.396, '2t_rmse_vs_analysis': 3.419, 'note': 'sanity check, not an evaluation'}
+{'lead_hours': 18, 'valid_time': '2021-10-01T12:00:00', '2t_mean_K': 279.336, '2t_rmse_vs_analysis': 2.492, 'note': 'sanity check, not an evaluation'}
+{'lead_hours': 24, 'valid_time': '2021-10-01T18:00:00', '2t_mean_K': 280.063, '2t_rmse_vs_analysis': 2.569, 'note': 'sanity check, not an evaluation'}
+{'forecast_netcdf': '/content/outputs/aurora_earth_system/4a46a1059c8a/outputs/aurora_earth_system_forecast.nc', 'megabytes': 31.8, 'variables': ['10u', '10v', '2t', 'msl', 'q', 't', 'u', 'v', 'z'], 'dims': {'lead_hours': 4, 'latitude': 120, 'longitude': 240, 'level': 13}}
+{'stage': 'forecast', 'status': 'ok', 'seconds': 12.3}
+[colab] Executing cell 12/14 - aurora_earth_system-38...
+Running stage 'reload' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/reload.log
+{'artifact': '/content/outputs/aurora_earth_system/4a46a1059c8a/outputs/aurora_earth_system_adapter', 'format': 'org.valcorza.aurora-earth-system.adapter.v1', 'tensors': 80, 'bytes': 2173200, 'sha256': '27f6cd0a03675a93...'}
+{'reload_parity': {'max_abs_surf_diff': 0.0, 'max_abs_atmos_diff': 0.0, 'rtol': 1e-05, 'atol': 1e-06, 'reload_verification': 'PASSED', 'reloaded_best_epoch': 6, 'compared': '2 forecast steps from ORIGIN, every variable, against the trained model in the adapt stage'}}
+{'stage': 'reload', 'status': 'ok', 'seconds': 11.5}
+[colab] Executing cell 13/14 - aurora_earth_system-41...
+Running stage 'bundle' in the isolated environment; log: /content/outputs/aurora_earth_system/4a46a1059c8a/logs/bundle.log
+{'outputs_directory': '/content/outputs/aurora_earth_system/4a46a1059c8a/outputs'}
+  - aurora_earth_system_adapter/adapter.safetensors (2122.3 KB)
+  - aurora_earth_system_adapter/manifest.json (20.5 KB)
+  - aurora_earth_system_evaluation_report.json (28.2 KB)
+  - aurora_earth_system_forecast.json (2.3 KB)
+  - aurora_earth_system_forecast.nc (31070.5 KB)
+  - aurora_earth_system_frozen_rollout.json (0.9 KB)
+  - aurora_earth_system_frozen_test.json (10.5 KB)
+  - aurora_earth_system_input_manifest.json (0.7 KB)
+  - aurora_earth_system_reload_parity.json (0.3 KB)
+  - aurora_earth_system_result.json (7.4 KB)
+  - aurora_earth_system_sample_window.nc (47324.0 KB)
+  - aurora_earth_system_training_history.json (13.7 KB)
+  - runtime.json (0.4 KB)
+{'stage': 'bundle', 'status': 'ok', 'seconds': 0.3}
+[colab] Executing cell 14/14 - aurora_earth_system-43...
+{'activity': 'skipped (optional)', 'to_run': 'set RUN_ACTIVITY = True, then run this cell'}
+[colab] Saving notebook with outputs to '/home/kurt/colab-runs/aurora-earth-system-pipeline-a59bed4-272cbc/aurora_earth_system_colab_a59bed4_colab-cli-t4_output.ipynb'...

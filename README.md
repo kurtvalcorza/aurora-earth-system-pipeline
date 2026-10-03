@@ -73,7 +73,7 @@ Tests are offline: crafted pickles, temporary manifests, synthetic windows and a
 
 ## Release status
 
-**Candidate** — the notebook was regenerated in the isolated-environment pattern to fix review findings AUR-M1..M4 / AUR-m1..m6, and no hosted run of the new blob exists yet. The 2026-09-19 Kaggle T4 run of the previous blob `42fb3883` needed a restart after the install cell (2 passes), which is not a one-pass `Run all`; see `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks — are necessary but never the evidence; a one-pass hosted run of the current blob is.
+**Candidate** — the notebook was regenerated in the isolated-environment pattern to fix review findings AUR-M1..M4 / AUR-m1..m6; a hosted Colab T4 default-path run of the new blob (`a59bed4`, blob `cfa631b6`) completed in one pass with no restart and 0 errors on 2026-10-03, while the activity, BYOD and Kaggle runs are not recorded yet. The 2026-09-19 Kaggle T4 run of the previous blob `42fb3883` needed a restart after the install cell (2 passes), which is not a one-pass `Run all`; see `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks — are necessary but never the evidence; the recorded hosted runs are.
 
 ## Licensing
 
