@@ -204,11 +204,47 @@ pre-flight on an unsupported runtime; a hosted one-pass run is still required.
 
 This entry applies only to the supplemental workshop notebook, not the primary tutorial executions above.
 
-### 2026-10-03 uv isolated environment — hosted re-run pending
+### 2026-10-03 uv isolated environment
 
 The workshop no longer pip-installs into the notebook kernel. Section 1 downloads a pinned `uv` 0.12.15 wheel (size and SHA-256 checked), builds a managed CPython 3.12.12 environment and installs `tutorials/requirements-weather-workshop.lock.txt` (107 packages, compiled with `uv pip compile --generate-hashes` from the notebook's previous pins in `tutorials/requirements-weather-workshop.in`) with `--require-hashes --only-binary :all:`. A router cell then sends every later code cell to one persistent worker in that environment (the carrier of `bart-mnli-zero-shot-classification-pipeline` `ee128d2`, verbatim). The NumPy-preload workaround and the restart guard are gone; the pinned NumPy 2.5.3 is now the one used. The notebook runs on **Linux x86_64 only** (Colab, Kaggle, Linux Jupyter). Learner cells are unchanged.
 
-Blob `385da6db6424b92fdec83f82a0e68f08abeed02e` → `09775738e2214172975f9c0f30d25a6bb29ab48d`. Verification so far is static only (pytest, ruff, the validator and both generator `--check`s); it is not clean-runtime evidence. A hosted T4 Run all of the new blob is pending; its default results should match the 2026-09-28 Colab run of `4f4fe8e` below. Status stays **Candidate**.
+Blob `385da6db6424b92fdec83f82a0e68f08abeed02e` → `09775738e2214172975f9c0f30d25a6bb29ab48d`. Verification so far is static only (pytest, ruff, the validator and both generator `--check`s); it is not clean-runtime evidence. A hosted T4 run of the new blob is recorded in the next section; its default results match the 2026-09-28 Colab run of `4f4fe8e` below. Status stays **Candidate**.
+
+#### Recorded executions (workshop)
+
+| Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
+|---|---|---|---|---|---|
+| 2026-10-03 | `b5c8494` / `09775738` | Colab CLI 0.7.4, fresh Colab Tesla T4; kernel Python 3.13.15, isolated environment CPython 3.12.12 with `torch 2.14.0+cu130`, NumPy 2.5.3, `cuda`; CLI sequential execution (`colab exec -f`), not a browser `Run all`, so the saved notebook has no execution counts; cell order is taken from `exec.log` (cells 1..25 in sequence) | Default settings only (every form control at its default; activity and BYOD off); no repository checkout, empty Hugging Face cache | 207.8 s | **PASS, one pass, no restart, 0 errors** — 25/25 code cells; default results identical to the 2026-09-28 Colab run of `4f4fe8e`; see [Colab CLI T4 run of `b5c8494`](#colab-cli-t4-run-of-b5c8494-uv-isolated-environment--2026-10-03) |
+
+### Colab CLI T4 run of `b5c8494` (uv isolated environment) — 2026-10-03
+
+Executed notebook: [`execution-evidence/2026-10-03/DIMER_Weather_and_Earth_System_Forecasting_Workshop_b5c8494_colab-cli-t4.ipynb`](execution-evidence/2026-10-03/DIMER_Weather_and_Earth_System_Forecasting_Workshop_b5c8494_colab-cli-t4.ipynb), SHA-256 `7a7d56275d277e56a59896665183771547175c74c978b5843a282342f93cebe2`, the Colab CLI output notebook copied byte for byte (run id `20261003T225859Z-4073`).
+
+Source match: the executor fetched the notebook from GitHub at `b5c84944e1a2641e320f5978d1126c179d5c9793` and verified its Git blob `09775738e2214172975f9c0f30d25a6bb29ab48d` before allocating the VM. All 63 cell ids, their order and every cell source in the executed file are identical to that blob; no form control was changed.
+
+Runtime: Colab CLI 0.7.4, fresh Colab Tesla T4 session (released after the run). Kernel Python 3.13.15; Section 1 built the isolated environment (CPython 3.12.12, 107 locked packages, 64 s) and every later cell ran in it: `torch 2.14.0+cu130`, `microsoft-aurora 2.0.1`, `xarray 2026.7.0`, NumPy 2.5.3, `versions_match_lock: True`, device `cuda`. Wall time 207.8 s for the whole notebook, including the environment build and downloads. Peak VRAM was not recorded.
+
+Executed cells: 25 of 25 code cells, in order 1..25 per `exec.log`, zero error outputs, no restart. The CLI does not set execution counts.
+
+Results, compared with the 2026-09-28 Colab run of `4f4fe8e` (blob `385da6db`) by `difflib` on normalised output lines and on every rendered table row:
+
+- Identical: the frozen validation scores, the LoRA training history to full printed precision (epoch 6 train loss 0.049367986619472504, val loss 0.05363894316057364), best epoch 6, 540,672 trainable parameters, all 64 rendered table rows (independent-test mean RMSE ratio frozen → adapted 1.568 → 0.914 / 1.328 → 0.867 / 1.237 → 0.888 / 1.294 → 0.997 at 6 / 12 / 18 / 24 h; variables beating persistence 1 → 6, 1 → 8, 1 → 7, 2 → 6; the per-variable table; the new-origin forecast table), the adapter (2,173,200 bytes, SHA-256 `23043cf9bceb…`) and reload parity 0.0 / 0.0 with consumer checks PASS. The Section 4 conversion matched the pinned converted digests.
+- Differ, explained: the run id; `experiment_sha256` `30f9cc24a516…` vs `eefe721001a2…`, because the frozen record includes the measured training time (35.85 s vs 37.18 s); the report-bundle SHA-256 (`cc5d1141a375…` vs `057b5ce69959…`), because the bundle holds the run id, timestamps, timings and the runtime record (Python 3.12.12 here); the environment lines (isolated-environment receipt, Python 3.12.12 and NumPy 2.5.3 instead of the kernel's 3.13.15 and 2.1.3); Hugging Face download progress bars and the Colab-vault `HF_TOKEN` lookup warning, which the worker does not emit (the unauthenticated-request warning still appears). Bundle file count is 30 in both.
+- Display only: the plain-text fallback of four rendered tables (cells `dimer-weather-workshop-29`, `-33`, `-40`) is column-truncated (`...`) because the worker formats `text/plain` at a narrower width. The `text/html` rendering that Colab shows is complete and identical to the comparison run.
+
+| Journey | Verdict |
+|---|---|
+| Default path, fresh runtime, one pass with no restart | Pass |
+| Isolated environment build (hash-locked, wheel-only) | Pass |
+| Section 4 audit and conversion with pinned converted digests | Pass |
+| Freeze → independent test | Pass |
+| Fresh-directory reload with consumer checks | Pass |
+| Longer-rollout activity | Not assessed in this run (default off) |
+| BYOD NetCDF (valid and invalid) | Not assessed in this run |
+
+Evidence boundary: Colab CLI sequential execution on a fresh T4, not a browser `Run all`; default path only; forms were not rendered and no upload dialog was answered; the report ZIP bytes were not retained. Status remains **Candidate**, and `metadata.dimer.clean_runtime_evidence` stays `pending` as authored.
+
+Still open: hosted BYOD NetCDF qualification (valid and invalid); the longer-rollout activity on the new blob; consumption of an exported adapter by `AuroraPipeline.from_artifact`; the 57-object data-pin parity; peak VRAM.
 
 ### Maintainer-supplied successful Colab run — 2026-09-26
 
