@@ -3,3 +3,6 @@ weights/** -text
 
 # Colab CLI T4 run evidence is digest-verified and must remain byte-exact.
 docs/execution-evidence/2026-10-03-colab-t4/** -text
+
+# Colab CLI T4 run evidence for the weather workshop (2026-10-03) is digest-verified and must remain byte-exact.
+docs/execution-evidence/2026-10-03/** -text
