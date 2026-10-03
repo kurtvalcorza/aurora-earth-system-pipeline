@@ -1,0 +1,17 @@
+# Direct pins of DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb: the same versions and ranges the notebook's
+# previous in-kernel install used (main 6e62329). Compile the hash lock with:
+#   uv pip compile tutorials/requirements-weather-workshop.in --python-version 3.12 --python-platform x86_64-manylinux_2_28 --generate-hashes --only-binary :all: -o tutorials/requirements-weather-workshop.lock.txt
+torch==2.14.0
+microsoft-aurora==2.0.1
+timm==1.0.29
+einops==0.8.2
+xarray==2026.7.0
+netCDF4==1.7.4
+numcodecs==0.17.0
+numpy==2.5.3
+safetensors==0.8.0
+huggingface-hub==1.32.0
+zarr==3.4.0
+gcsfs==2026.7.0
+matplotlib>=3.9,<3.11
+pandas>=2.2,<3.1

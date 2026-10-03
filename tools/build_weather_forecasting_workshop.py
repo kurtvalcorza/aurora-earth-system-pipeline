@@ -3,20 +3,70 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 from pathlib import Path
 
+import weather_workshop_isolated_runtime as isolated
 from weather_forecasting_workshop_source import CELLS
 
 NOTEBOOK_NAME = "DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb"
 
+# Cells generated from repository files rather than written in the source module (2026-10-03 uv isolated environment).
+GENERATED = {
+    "isolated_install": isolated.install_cell,
+    "isolated_router": isolated.router_cell,
+    "isolated_imports": isolated.imports_cell,
+}
+MAX_CELL_LINE = 2000
+
+
+def cell_ids():
+    """Explicit ids where the source gives one; otherwise the next number after the last numbered id. The cells that
+    existed before 2026-10-03 therefore keep their ids, and the four uv cells carry their own."""
+    ids, number = [], 0
+    for cell in CELLS:
+        explicit = cell.get("id")
+        if explicit:
+            ids.append(explicit)
+            match = re.fullmatch(r"dimer-weather-workshop-(\d+)", explicit)
+            if match:
+                number = int(match.group(1)) + 1
+        else:
+            ids.append(f"dimer-weather-workshop-{number:02d}")
+            number += 1
+    if len(set(ids)) != len(ids):
+        raise SystemExit("duplicate workshop cell ids")
+    return ids
+
+
+def isolated_metadata():
+    lock_text = isolated.read_lock()
+    return {
+        "mechanism": "uv isolated environment; every code cell after the router runs in one persistent worker there",
+        "platform": "linux-x86_64",
+        "managed_python": isolated.MANAGED_PYTHON,
+        "uv": isolated.UV["version"],
+        "lock": isolated.LOCK,
+        "lock_sha256": hashlib.sha256(lock_text.encode("utf-8")).hexdigest(),
+        "locked_packages": len(isolated.lock_packages(lock_text)),
+        "install_flags": ["--require-hashes", "--only-binary", ":all:"],
+        "kernel_installs": False,
+    }
+
+
 def build_notebook():
     rendered = []
-    for index, cell in enumerate(CELLS):
+    for cell_id, cell in zip(cell_ids(), CELLS, strict=True):
+        source = GENERATED[cell["generated"]]() if "generated" in cell else cell["source"]
+        too_long = [len(line) for line in source.split("\n") if len(line) > MAX_CELL_LINE]
+        if too_long:
+            raise SystemExit(f"{cell_id}: {len(too_long)} line(s) over {MAX_CELL_LINE} characters; split the literal")
         base = {
-            "id": f"dimer-weather-workshop-{index:02d}",
+            "id": cell_id,
             "metadata": {},
-            "source": cell["source"].splitlines(keepends=True),
+            "source": source.splitlines(keepends=True),
         }
         if cell["kind"] == "markdown":
             rendered.append({"cell_type": "markdown", **base})
@@ -44,7 +94,21 @@ def build_notebook():
                     "repository": "kurtvalcorza/aurora-earth-system-pipeline",
                     "source": "tools/weather_forecasting_workshop_source.py",
                     "generator": "tools/build_weather_forecasting_workshop.py",
+                    "isolated_runtime": "tools/weather_workshop_isolated_runtime.py",
+                    "lock": isolated.LOCK,
                 },
+                "isolated_environment": isolated_metadata(),
+                "revisions": [
+                    {
+                        "date": "2026-10-03",
+                        "previous_blob": "385da6db6424b92fdec83f82a0e68f08abeed02e",
+                        "change": (
+                            "uv isolated environment: the in-kernel pip install and its restart guard are replaced by a "
+                            "pinned uv, a managed CPython 3.12.12 and a hash-locked wheel-only install; every later code "
+                            "cell runs in one persistent worker there. Linux x86_64 only. Learner cells unchanged."
+                        ),
+                    },
+                ],
             },
             "kernelspec": {"display_name": "Python 3", "name": "python3"},
             "language_info": {"name": "python"},

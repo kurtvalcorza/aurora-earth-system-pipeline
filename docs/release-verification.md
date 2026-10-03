@@ -204,6 +204,12 @@ pre-flight on an unsupported runtime; a hosted one-pass run is still required.
 
 This entry applies only to the supplemental workshop notebook, not the primary tutorial executions above.
 
+### 2026-10-03 uv isolated environment — hosted re-run pending
+
+The workshop no longer pip-installs into the notebook kernel. Section 1 downloads a pinned `uv` 0.12.15 wheel (size and SHA-256 checked), builds a managed CPython 3.12.12 environment and installs `tutorials/requirements-weather-workshop.lock.txt` (107 packages, compiled with `uv pip compile --generate-hashes` from the notebook's previous pins in `tutorials/requirements-weather-workshop.in`) with `--require-hashes --only-binary :all:`. A router cell then sends every later code cell to one persistent worker in that environment (the carrier of `bart-mnli-zero-shot-classification-pipeline` `ee128d2`, verbatim). The NumPy-preload workaround and the restart guard are gone; the pinned NumPy 2.5.3 is now the one used. The notebook runs on **Linux x86_64 only** (Colab, Kaggle, Linux Jupyter). Learner cells are unchanged.
+
+Blob `385da6db6424b92fdec83f82a0e68f08abeed02e` → `09775738e2214172975f9c0f30d25a6bb29ab48d`. Verification so far is static only (pytest, ruff, the validator and both generator `--check`s); it is not clean-runtime evidence. A hosted T4 Run all of the new blob is pending; its default results should match the 2026-09-28 Colab run of `4f4fe8e` below. Status stays **Candidate**.
+
 ### Maintainer-supplied successful Colab run — 2026-09-26
 
 The maintainer supplied the [executed notebook](execution-evidence/2026-09-26/DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb) and authorized merging PR #10 (merge commit `1f768ce`). The file is archived byte-for-byte, SHA-256 `b166e2b78cd8385520b24beb3af3e1016c25b9a25380a811642c50ffdd0c8588`. All 22 code cells have execution counts, 38 saved outputs and zero saved errors. Code-cell sources match commit `8fba5673599ac403eae964f3269748ce053905c7`, tutorial blob `9db1e28127f6bec5886b3608fa8c15df8c6b647a`, apart from Colab-inserted `# @title` lines. Later commits on `main` that touch the notebook (`2bf00ef` (AI User Disclosure)) change only markdown cells; its code cells are identical to the executed revision. This evidence commit does not change tutorial code.

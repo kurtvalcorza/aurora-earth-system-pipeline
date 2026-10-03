@@ -131,11 +131,12 @@ def test_clean_notebook():
             assert cell["outputs"] == []
 
 
-def test_install_keeps_a_numpy_the_kernel_already_loaded():
-    # Colab imports NumPy at startup; reinstalling it left 2.1.3 in memory over 2.5.3 on disk, which broke later
-    # imports (Notebook Spec RUN10 forbids a manual restart). The cell keeps a loaded NumPy 2.x and fails closed
-    # if any module it depends on was replaced underneath the kernel.
+def test_the_pinned_numpy_is_installed_in_the_isolated_environment_not_the_kernel():
+    # Until 2026-10-03 the cell pip-installed into the kernel and, because Colab imports NumPy at startup, kept the
+    # host's NumPy (2.1.3 on Colab, 2.0.2 on Kaggle) instead of the pinned 2.5.3, with a restart guard for anything
+    # else replaced on disk. The uv isolated environment installs the pins into its own interpreter, so the pinned
+    # NumPy is the one used and nothing in the kernel is replaced (tests/test_weather_workshop_isolated_runtime.py).
     cells = ["".join(c["source"]) for c in json.loads(NOTEBOOK.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
-    install = next(cell for cell in cells if "pip" in cell and "install" in cell)
-    assert 'NUMPY_PRELOADED' in install and '"numpy" in sys.modules' in install
-    assert "if stale:" in install and "Restart session" in install
+    install = next(cell for cell in cells if cell.startswith("# @title Infrastructure: install the locked runtime"))
+    assert "NUMPY_PRELOADED" not in install and "Restart session" not in install
+    assert "numpy==2.5.3" in install and "--require-hashes" in install
