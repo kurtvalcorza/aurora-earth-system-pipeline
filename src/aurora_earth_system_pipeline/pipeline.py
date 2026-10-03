@@ -41,7 +41,6 @@ import math
 import pickle
 import pickletools
 import time
-import warnings
 import zipfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -322,9 +321,9 @@ def build_model(*, use_lora: bool = False) -> Any:
     """Instantiate the small pretrained architecture from the installed `microsoft-aurora` package."""
     from aurora import AuroraSmallPretrained
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return AuroraSmallPretrained(use_lora=use_lora)
+    # No warning filter: with the pinned microsoft-aurora 2.0.1 / timm 1.0.29 construction raises none, and any
+    # warning a future build raises should reach the caller rather than be hidden.
+    return AuroraSmallPretrained(use_lora=use_lora)
 
 
 def convert_model(path: str | Path | None = None) -> dict[str, Any]:
@@ -750,7 +749,16 @@ class AuroraPipeline:
         provides in every backbone attention block, zero-initialised so epoch 0 is the pretrained model;
         `"lora+heads"` also unfreezes the encoder token embeddings and decoder heads. Loss = mean over the
         nine variables of MSE / scale², AdamW, fixed learning rate, one origin per step. The epoch with the
-        lowest validation loss is kept; epoch 0 records the frozen model."""
+        lowest validation loss is kept; epoch 0 records the frozen model.
+
+        A pipeline adapts once: a second call would start from the already-trained tensors while epoch 0 still
+        claimed the frozen model, so it is refused. Build a fresh pipeline (`from_pretrained(..., use_lora=True)`)
+        for every adaptation run."""
+        if self.adapter is not None:
+            raise ValueError(
+                "this pipeline is already adapted; adapt() starts from the frozen model, so build a fresh pipeline "
+                "with AuroraPipeline.from_pretrained(..., use_lora=True) for another adaptation run"
+            )
         if not isinstance(epochs, int) or not 1 <= epochs <= 50:
             raise ValueError("epochs must be an int in 1..50")
         if not (0.0 < lr <= 0.1):

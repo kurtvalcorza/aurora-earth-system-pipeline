@@ -1,2 +1,5 @@
 # Snapshot files are digest-verified byte-for-byte against dimer-base-manifest.json; never convert their line endings.
 weights/** -text
+
+# Colab CLI T4 run evidence is digest-verified and must remain byte-exact.
+docs/execution-evidence/2026-10-03-colab-t4/** -text
