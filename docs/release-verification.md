@@ -102,7 +102,8 @@ Before changing the registry status from `Candidate` to `Release-grade`:
      adapter (80 tensors, 2,173,200 bytes);
    - Section 9: the three-way comparison with the adapter rebuilt from files and the outcome line (on the sample
      ≈ 0.90 versus ≈ 1.57 at 6 h, 1 → 6 variables beating persistence; the stage stops if the default configuration
-     does not improve);
+     does not improve, a default-path regression check against the recorded run rather than a scientific test,
+     because the default recipe was developed on this test window);
    - Section 10: a 4-step forecast from origin 3 and `outputs/aurora_earth_system_forecast.nc` with 9 variables;
    - Section 11: `reload_verification: PASSED` with maximum differences at or near 0;
    - Section 12: `outputs/aurora_earth_system_result.json` with the provenance block and the SHA-256 of every output;
@@ -209,6 +210,12 @@ This entry applies only to the supplemental workshop notebook, not the primary t
 The workshop no longer pip-installs into the notebook kernel. Section 1 downloads a pinned `uv` 0.12.15 wheel (size and SHA-256 checked), builds a managed CPython 3.12.12 environment and installs `tutorials/requirements-weather-workshop.lock.txt` (107 packages, compiled with `uv pip compile --generate-hashes` from the notebook's previous pins in `tutorials/requirements-weather-workshop.in`) with `--require-hashes --only-binary :all:`. A router cell then sends every later code cell to one persistent worker in that environment (the carrier of `bart-mnli-zero-shot-classification-pipeline` `ee128d2`, verbatim). The NumPy-preload workaround and the restart guard are gone; the pinned NumPy 2.5.3 is now the one used. The notebook runs on **Linux x86_64 only** (Colab, Kaggle, Linux Jupyter). Learner cells are unchanged.
 
 Blob `385da6db6424b92fdec83f82a0e68f08abeed02e` → `09775738e2214172975f9c0f30d25a6bb29ab48d`. Verification so far is static only (pytest, ruff, the validator and both generator `--check`s); it is not clean-runtime evidence. A hosted T4 run of the new blob is recorded in the next section; its default results match the 2026-09-28 Colab run of `4f4fe8e` below. Status stays **Candidate**.
+
+### 2026-10-13 review W2 (AUR2) fixes
+
+Blob `09775738e2214172975f9c0f30d25a6bb29ab48d` → `1eed1127b5dfa3230ba8f6a06ebab626540a1505`, regenerated from `tools/weather_forecasting_workshop_source.py`. The 1.5° comparison is described as a resolution/data-product shift that does not isolate resolution (AUR2-M1); the fixed inherited recipe, the re-used October 2021 test window and the non-binding epoch selection are stated (AUR2-M2); the quoted reference numbers are this notebook's `b5c8494` run, labelled as not re-run here, and the timing sentence quotes that run (AUR2-m1); a diurnal-cycle note and a printed 2 m temperature table from values the test cell already computes (AUR2-m2); prediction prompts and collapsed exercise answers (AUR2-m3); `notebook_kind: WORKSHOP` and References with licences, keeping NOTEBOOK_SPEC 2.1 (AUR2-m4); the two environment variables of the install cell (AUR2-m5). Default-path computation is unchanged. The carrier's default-path stop in `tools/tutorial_stages.py` is reworded as a regression check against the recorded run (message only), which regenerates `aurora_earth_system_colab.ipynb` as well.
+
+Verification so far is static only (pytest, ruff, the validator, both generator `--check`s and the review's acceptance checks); it is not clean-runtime evidence. The runs below are of earlier blobs. Status stays **Candidate**.
 
 #### Recorded executions (workshop)
 

@@ -84,6 +84,7 @@ def build_notebook():
                 "clean_runtime_evidence": "pending",
                 "credentials_required": False,
                 "dataset": "ERA5 via WeatherBench2 at 1.5 degrees",
+                "notebook_kind": "WORKSHOP",
                 "notebook_mode": "WORKSHOP",
                 "notebook_profile": "E2E",
                 "notebook_spec": "2.1",
@@ -106,6 +107,18 @@ def build_notebook():
                             "uv isolated environment: the in-kernel pip install and its restart guard are replaced by a "
                             "pinned uv, a managed CPython 3.12.12 and a hash-locked wheel-only install; every later code "
                             "cell runs in one persistent worker there. Linux x86_64 only. Learner cells unchanged."
+                        ),
+                    },
+                    {
+                        "date": "2026-10-13",
+                        "previous_blob": "09775738e2214172975f9c0f30d25a6bb29ab48d",
+                        "change": (
+                            "Review W2 (AUR2) fixes: the 1.5 degree comparison is described as a resolution/data-product shift "
+                            "that does not isolate resolution; the fixed inherited recipe, the re-used October 2021 test window "
+                            "and the non-binding epoch selection are stated; the quoted reference numbers name their run; "
+                            "prediction prompts, collapsed exercise answers, a diurnal-cycle note with a printed 2 m temperature "
+                            "table, documented environment variables, notebook_kind and References with licences. Default-path "
+                            "computation unchanged; the test cell prints one extra table from values it already computed."
                         ),
                     },
                 ],
