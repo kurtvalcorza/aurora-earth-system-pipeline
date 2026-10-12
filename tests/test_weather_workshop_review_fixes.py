@@ -296,7 +296,7 @@ def test_adapter_state_digest_tracks_tensor_values():
 
 
 def test_test_cell_verifies_the_freeze_before_any_test_forecast():
-    src = code("# @title Independent test comparison")
+    src = code("# @title Test comparison on the temporally separate, development-reused evaluation window")
     assert src.index("freeze_mismatches(") < src.index("evaluate_model(")
     assert "origins=TEST_ORIGINS" in src and "TEST_LEAD_STEPS = frozen_record" in src
 

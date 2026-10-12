@@ -85,6 +85,12 @@ def build_notebook():
                 "credentials_required": False,
                 "dataset": "ERA5 via WeatherBench2 at 1.5 degrees",
                 "notebook_kind": "WORKSHOP",
+                "evaluation_window": {
+                    "description": "temporally separate, development-reused evaluation window",
+                    "built_in": "2021-09-30T00:00:00..2021-10-01T18:00:00 (chunk label test-2021-10)",
+                    "development_reuse": "scored in earlier runs of this notebook; used to develop the primary tutorial's default recipe",
+                    "pretrained_checkpoint_exposure": "unknown",
+                },
                 "notebook_mode": "WORKSHOP",
                 "notebook_profile": "E2E",
                 "notebook_spec": "2.1",
@@ -119,6 +125,18 @@ def build_notebook():
                             "prediction prompts, collapsed exercise answers, a diurnal-cycle note with a printed 2 m temperature "
                             "table, documented environment variables, notebook_kind and References with licences. Default-path "
                             "computation unchanged; the test cell prints one extra table from values it already computed."
+                        ),
+                    },
+                    {
+                        "date": "2026-10-13",
+                        "previous_blob": "1eed1127b5dfa3230ba8f6a06ebab626540a1505",
+                        "change": (
+                            "Peer-review follow-up: a fresh zero-update LoRA model before every adaptation (a re-run no longer "
+                            "continues training); the test is a temporally separate, development-reused evaluation window, with "
+                            "development reuse and pretrained-checkpoint exposure (unknown) exported separately; the built-in "
+                            "times are checked against the store's time coordinate and the exact dates replace month labels; "
+                            "the soil-type count is computed from the loaded field; macro-average naming and the defined-ratio "
+                            "denominator; selection-objective, diurnal, control-design, leakage and training-vocabulary wording."
                         ),
                     },
                 ],
