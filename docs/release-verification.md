@@ -219,6 +219,16 @@ Verification so far is static only (pytest, ruff, the validator, both generator 
 
 Peer-review follow-up (same day, blob `1eed1127` → `3b5dbc429481f799d1787fd1d7f18e022f2591de`): section 12 now rebuilds a zero-update LoRA model from the verified checkpoint before every adaptation, so re-running it repeats the recipe instead of continuing to train the selected adapter (a first Run all builds the same model from the same seed, so its numbers are expected to be unchanged; not yet confirmed on a hosted run); the built-in window times are checked against the store's own time coordinate, which equals the epoch arithmetic for all four windows (read anonymously on 2026-10-13; the windows run 2018-12-31–2019-01-01, 2019-07-01–02, 2020-03-31–04-01 and 2021-09-30–10-01, and the month labels now give these dates); the soil-type count is printed from the loaded field; the test is named a temporally separate, development-reused evaluation window, with development reuse and pretrained-checkpoint exposure (unknown) exported separately; `comparison.csv` reports `variables_with_defined_ratio` instead of a literal `variables: 9`; and wording on the selection objective, the diurnal cycle, control design, test leakage and training vocabulary. The runs below are of earlier blobs. Status stays **Candidate**.
 
+### 2026-10-13 owner decisions on review W2
+
+Kurt decided the three open items on PR #16: **AUR2-M1 option C** (the lesson is a domain shift to WeatherBench2's conservatively regridded 1.5° ERA5 product, with its components named; resolution is no longer the headline); **AUR2-M2 option C** (the workshop trains up to `EPOCHS = 30` with early stopping at `PATIENCE = 3` on the unweighted, scaled, one-step validation MSE, keeping the best epoch, so validation selection can bind; the test is still read once after the freeze); **AUR2-m4 option A** (the workshop declares NOTEBOOK_SPEC 2.5 with the use notice, problem statement, data context, what-did-not-work section, IEEE numbered references and licences; `tools/validate_release_assets.py` checks 2.5 for this notebook only, and the primary tutorial stays at 2.2). AUR2-M2 option D is superseded.
+
+**Default numbers change with this revision.** Expected runtime: six epochs took about 36 s in the `b5c8494` run, so a run that uses all 30 epochs adds about 2.5 minutes (about 6 minutes in total on a T4); this is an estimate until a hosted run measures it.
+
+**Every recorded execution below covers the previous design** (six fixed epochs, NOTEBOOK_SPEC 2.1) and is history for the new blob (REL14). The quoted `b5c8494` numbers in the notebook are labelled as coming from that design.
+
+The primary tutorial's default-path stop in `tools/tutorial_stages.py` is unchanged: it checks the primary tutorial's own fixed six-epoch recipe, whose recorded runs still support its expected direction, and the workshop no longer shares that epoch count. It therefore needs no new recorded values from the workshop run.
+
 #### Recorded executions (workshop)
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |

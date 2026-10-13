@@ -31,7 +31,8 @@ def cell_with(heading):
 def test_m1_resolution_is_not_presented_as_the_isolated_cause():
     opening = markdown()[0][1]
     assert "does not isolate" in opening and "plausible contributor" in opening
-    assert "non-integer codes" in opening and "native-resolution control" in opening
+    assert "non-integer codes" in opening and "no matched control" in opening
+    assert "### Core lesson: domain shift" in opening and "resolution" not in opening.split("### Core lesson")[0].lower()
     rows = [line for _, t in markdown() for line in t.splitlines() if line.startswith("| frozen model loses to persistence")]
     assert len(rows) == 1 and "not isolated" in rows[0] and "OOD setup" not in rows[0]
     checkpoint = cell_with("## Interpretation checkpoint")
@@ -41,10 +42,12 @@ def test_m1_resolution_is_not_presented_as_the_isolated_cause():
 
 def test_m2_fixed_recipe_reused_window_and_non_binding_selection_are_stated():
     section12 = cell_with("# 12. LoRA adaptation")
-    assert "fixed recipe, inherited and not tuned here" in section12 and "still decreasing" in section12
+    assert "inherited from this repository's primary Aurora tutorial" in section12 and "still decreasing" in section12
+    assert "up to 30 epochs" in section12 and "3 epochs in a row" in section12
+    assert "The test reports something different" in section12
     section14 = cell_with("# 14. Freeze the experiment")
     assert "within this run only" in section14 and "development-reused evaluation window" in section14
-    assert "default-path regression check against its recorded run, not a scientific test" in section14
+    assert "default-path regression check against its recorded runs, not a scientific test" in section14
     assert not any(t.startswith("# 15. Independent test") for _, t in markdown())
 
 
@@ -81,10 +84,10 @@ def test_m3_prediction_prompts_and_collapsed_answers():
 
 def test_m4_kind_references_and_licences():
     meta = notebook()["metadata"]["dimer"]
-    assert meta["notebook_kind"] == "WORKSHOP" and meta["notebook_spec"] == "2.1"
-    refs = [t for _, t in markdown() if re.search(r"^## References and licences", t, re.M)]
+    assert meta["notebook_kind"] == "WORKSHOP" and meta["notebook_spec"] == "2.5"
+    refs = [t for _, t in markdown() if re.search(r"^## References$", t, re.M)]
     assert len(refs) == 1
-    for needle in ("10.1038/s41586-025-09005-y", "10.1002/qj.3803", "10.1029/2023MS004019", "Licence: MIT", "Licence to use Copernicus Products"):
+    for needle in ("10.1038/s41586-025-09005-y", "10.1002/qj.3803", "10.1029/2023MS004019", "**MIT licence**", "Licence to use Copernicus Products"):
         assert needle in refs[0], needle
 
 
@@ -210,3 +213,49 @@ def test_cx4_cx5_cx6_cx9_cx10_cx11_wording():
     assert "zero-initialized" not in text and "**effective update**" in text
     for term in ("| **Parameter** |", "| **Loss** |", "| **Epoch** |", "| **Optimizer** |", "| **Training / validation / test** |"):
         assert term in text, term
+
+
+# ---------------------------------------------------------------- owner decisions 2026-10-13 (M1=C, M2=C, m4=A)
+
+
+def test_owner_m2c_early_stopping_lets_validation_selection_bind():
+    controls = code_cell("dimer-weather-workshop-04")
+    assert "EPOCHS = 30 " in controls and "PATIENCE = 3 " in controls and "PATIENCE must be in 1..EPOCHS" in controls
+    adapt = code_cell("dimer-weather-workshop-27")
+    assert "if since_best >= patience:" in adapt and "break" in adapt and "patience=PATIENCE" in adapt
+    assert '"selection_at_budget": best_epoch == epochs' in adapt
+    assert "the selection reached the budget, not a minimum" in adapt
+    meta = notebook()["metadata"]["dimer"]["adaptation_selection"]
+    assert (meta["max_epochs"], meta["patience"]) == (30, 3)
+
+
+def _early_stopping_loop(val_losses, epochs, patience):
+    """The notebook's selection rule, replayed on a list of validation losses (index 0 = epoch 0)."""
+    src = code_cell("dimer-weather-workshop-27")
+    assert "if val_loss < best_val:" in src and "since_best += 1" in src
+    best_val, best_epoch, since_best, run = val_losses[0], 0, 0, 0
+    for epoch in range(1, epochs + 1):
+        run = epoch
+        if val_losses[epoch] < best_val:
+            best_val, best_epoch, since_best = val_losses[epoch], epoch, 0
+        else:
+            since_best += 1
+            if since_best >= patience:
+                break
+    return best_epoch, run
+
+
+def test_owner_m2c_selection_rule_examples():
+    assert _early_stopping_loop([1.0, 0.8, 0.7, 0.75, 0.76, 0.77] + [0.1] * 25, 30, 3) == (2, 5)
+    assert _early_stopping_loop([1.0] + [1.0 - 0.01 * i for i in range(1, 31)], 30, 3) == (30, 30)
+    assert _early_stopping_loop([1.0, 1.1, 1.2, 1.3] + [0.0] * 27, 30, 3) == (0, 3)
+
+
+def test_owner_m4a_write_up_layer_and_notice():
+    cells = notebook()["cells"]
+    first_code = next(i for i, c in enumerate(cells) if c["cell_type"] == "code")
+    opening = "\n".join("".join(c["source"]) for c in cells[:first_code])
+    assert "> **⚠️ Notice.** For research, training and evaluation only." in opening
+    assert "**Notebook specification:** `2.5`" in opening and "### Problem statement" in opening
+    text = "\n".join(t for _, t in markdown())
+    assert "### Data context" in text and "## What did not work" in text and "## Licences" in text

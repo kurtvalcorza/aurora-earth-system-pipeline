@@ -91,9 +91,16 @@ def build_notebook():
                     "development_reuse": "scored in earlier runs of this notebook; used to develop the primary tutorial's default recipe",
                     "pretrained_checkpoint_exposure": "unknown",
                 },
+                "adaptation_selection": {
+                    "objective": "unweighted, per-variable scaled, one-step (+6 h) MSE on the validation window",
+                    "max_epochs": 30,
+                    "patience": 3,
+                    "epoch_0_eligible": True,
+                },
                 "notebook_mode": "WORKSHOP",
                 "notebook_profile": "E2E",
-                "notebook_spec": "2.1",
+                "notebook_spec": "2.5",
+                "notebook_spec_source": "ml-worker integrations/dimer/fleet-specs/NOTEBOOK_SPEC.md at bfe4150cad9d0e14ccd9905493e27383fa073a02",
                 "release_status": "candidate",
                 "standalone": True,
                 "worker_required": False,
@@ -137,6 +144,17 @@ def build_notebook():
                             "times are checked against the store's time coordinate and the exact dates replace month labels; "
                             "the soil-type count is computed from the loaded field; macro-average naming and the defined-ratio "
                             "denominator; selection-objective, diurnal, control-design, leakage and training-vocabulary wording."
+                        ),
+                    },
+                    {
+                        "date": "2026-10-13",
+                        "previous_blob": "3b5dbc429481f799d1787fd1d7f18e022f2591de",
+                        "change": (
+                            "Owner decisions on review W2: AUR2-M1 option C (the lesson is a domain shift to the WeatherBench2 "
+                            "1.5 degree data product; resolution is no longer the headline); AUR2-M2 option C (up to 30 epochs "
+                            "with early stopping, patience 3, so validation selection can bind; default numbers change); "
+                            "AUR2-m4 option A (NOTEBOOK_SPEC 2.5: declaration, use notice, problem statement, data context, "
+                            "what did not work, IEEE numbered references, licences)."
                         ),
                     },
                 ],

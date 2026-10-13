@@ -1,5 +1,7 @@
 # DIMER Workshop Specification: Weather & Earth-System Forecasting with Aurora
 
+> **2026-10-13 update (owner decisions on review W2).** The notebook now declares NOTEBOOK_SPEC **2.5**, frames the 1.5° experiment as a domain shift to the WeatherBench2 data product, and trains up to 30 epochs with early stopping (patience 3) instead of a fixed six. The generator (`tools/weather_forecasting_workshop_source.py`) and `docs/release-verification.md` are authoritative; the sections below describe the original 2.1 design.
+
 **Status:** Proposed  
 **Notebook specification:** DIMER `NOTEBOOK_SPEC` **2.1**  
 **Notebook profile:** `E2E`  
