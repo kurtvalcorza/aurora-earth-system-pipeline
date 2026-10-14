@@ -191,6 +191,8 @@ UNSUPPORTED_LEARNER_CLAIMS = re.compile(r"six epochs take about four minutes|abo
 # ---------------------------------------------------------------------------
 
 NOTEBOOK_SPEC = "2.2"
+# The supplemental workshop notebook is migrated separately (owner decision on review W2, 2026-10-13).
+WORKSHOP_NOTEBOOK_SPEC = "2.5"
 ALLOWED_PROFILES = {"E2E", "ARTIFACT-INFERENCE", "TASK-INFERENCE", "MULTI-CAPABILITY", "SMOKE"}
 STATUS_TOKENS = ("Candidate", "Release-grade")
 PLACEHOLDER = re.compile(r"\b(TODO|TBD|FIXME)\b|Insert text here|Tooltip:", re.I)
@@ -735,6 +737,32 @@ def _validate_guided_layer(path: Path, notebook: dict, markdown: str) -> None:
     _check("if RUN_ACTIVITY:" in _cell_source(cells[activity]), f"{path.name}: the activity must be gated by `if RUN_ACTIVITY:`")
 
 
+def _validate_workshop(path: Path) -> None:
+    """NOTEBOOK_SPEC 2.5 declaration and write-up layer for the workshop only (§3.4, §3.6, §3.7)."""
+    notebook = json.loads(_read(path))
+    dimer = notebook.get("metadata", {}).get("dimer", {})
+    _check(dimer.get("notebook_spec") == WORKSHOP_NOTEBOOK_SPEC, f"{path.name}: metadata.dimer.notebook_spec must be '{WORKSHOP_NOTEBOOK_SPEC}'")
+    _check(dimer.get("notebook_profile") == "E2E" and dimer.get("notebook_mode") == "WORKSHOP", f"{path.name}: profile E2E and mode WORKSHOP must be declared (§3.4)")
+    _check(dimer.get("notebook_kind") == "WORKSHOP", f"{path.name}: metadata.dimer.notebook_kind must be WORKSHOP (KND1)")
+    cells = notebook.get("cells", [])
+    first_code = next(i for i, c in enumerate(cells) if c.get("cell_type") == "code")
+    opening = "\n".join(_cell_source(c) for c in cells[:first_code] if c.get("cell_type") == "markdown")
+    _check(f"**Notebook specification:** `{WORKSHOP_NOTEBOOK_SPEC}`" in opening, f"{path.name}: the opening must declare the notebook specification (§3.4)")
+    _check("> **⚠️ Notice.** For research, training and evaluation only." in opening, f"{path.name}: the use notice must precede the first code cell (DOC17, DOC20)")
+    markdown = [_cell_source(c) for c in cells if c.get("cell_type") == "markdown"]
+    text = "\n".join(markdown)
+    for heading in ("### Problem statement", "### Data context", "## What did not work", "## References", "## Licences"):
+        _check(heading in text, f"{path.name}: write-up section {heading!r} is required (§3.6)")
+    refs = next((m for m in markdown if "\n## References\n" in m or m.startswith("## References")), "")
+    ref_block = refs[refs.index("## References"):]
+    ref_block = ref_block[: ref_block.index("## Licences")] if "## Licences" in ref_block else ref_block
+    entries = set(re.findall(r"^\[(\d+)\] ", ref_block, re.M))
+    body = text.replace(ref_block, "")
+    cited = set(re.findall(r"\[(\d+)\]", body))
+    _check(bool(entries), f"{path.name}: References must hold numbered entries (DOC14)")
+    _check(cited == entries, f"{path.name}: in-text citations {sorted(cited)} must match reference entries {sorted(entries)} (DOC16)")
+
+
 def validate_notebooks() -> None:
     tutorials = ROOT / "tutorials"
     names = {p.name for p in tutorials.glob("*.ipynb")}
@@ -759,6 +787,7 @@ def validate_notebooks() -> None:
     _check("standalone" in registry.lower(), "tutorials/README.md must record that the notebook is standalone")
     _check("isolated" in registry.lower(), "tutorials/README.md must describe the isolated environment")
     _check(f"`{WORKSHOP_NOTEBOOK_NAME}`" in registry, f"{WORKSHOP_NOTEBOOK_NAME} missing from tutorials/README.md")
+    _validate_workshop(tutorials / WORKSHOP_NOTEBOOK_NAME)
 
 
 def validate_all() -> list[str]:

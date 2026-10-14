@@ -296,7 +296,7 @@ def test_adapter_state_digest_tracks_tensor_values():
 
 
 def test_test_cell_verifies_the_freeze_before_any_test_forecast():
-    src = code("# @title Independent test comparison")
+    src = code("# @title Test comparison on the temporally separate, development-reused evaluation window")
     assert src.index("freeze_mismatches(") < src.index("evaluate_model(")
     assert "origins=TEST_ORIGINS" in src and "TEST_LEAD_STEPS = frozen_record" in src
 
@@ -324,7 +324,7 @@ def _adapter(tmp_path, names=("a.lora_A", "a.lora_B")):
     root = tmp_path / "artifact"
     root.mkdir()
     (root / "adapter.safetensors").write_bytes(b"synthetic adapter bytes")
-    adaptation = {"trainable": "lora", "n_trainable": 12, "epochs": 6, "best_epoch": 6, "learning_rate": 1e-3,
+    adaptation = {"trainable": "lora", "n_trainable": 12, "epochs": 30, "patience": 3, "epochs_run": 9, "best_epoch": 6, "learning_rate": 1e-3,
                   "seed": 0, "loss_scales": {"2t": 10.0}, "history": [{"epoch": 0}]}
     manifest = NS["build_adapter_manifest"](root / "adapter.safetensors", list(names), adaptation, "s" * 64)
     (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")

@@ -84,9 +84,23 @@ def build_notebook():
                 "clean_runtime_evidence": "pending",
                 "credentials_required": False,
                 "dataset": "ERA5 via WeatherBench2 at 1.5 degrees",
+                "notebook_kind": "WORKSHOP",
+                "evaluation_window": {
+                    "description": "temporally separate, development-reused evaluation window",
+                    "built_in": "2021-09-30T00:00:00..2021-10-01T18:00:00 (chunk label test-2021-10)",
+                    "development_reuse": "scored in earlier runs of this notebook; used to develop the primary tutorial's default recipe",
+                    "pretrained_checkpoint_exposure": "unknown",
+                },
+                "adaptation_selection": {
+                    "objective": "unweighted, per-variable scaled, one-step (+6 h) MSE on the validation window",
+                    "max_epochs": 30,
+                    "patience": 3,
+                    "epoch_0_eligible": True,
+                },
                 "notebook_mode": "WORKSHOP",
                 "notebook_profile": "E2E",
-                "notebook_spec": "2.1",
+                "notebook_spec": "2.5",
+                "notebook_spec_source": "ml-worker integrations/dimer/fleet-specs/NOTEBOOK_SPEC.md at bfe4150cad9d0e14ccd9905493e27383fa073a02",
                 "release_status": "candidate",
                 "standalone": True,
                 "worker_required": False,
@@ -106,6 +120,41 @@ def build_notebook():
                             "uv isolated environment: the in-kernel pip install and its restart guard are replaced by a "
                             "pinned uv, a managed CPython 3.12.12 and a hash-locked wheel-only install; every later code "
                             "cell runs in one persistent worker there. Linux x86_64 only. Learner cells unchanged."
+                        ),
+                    },
+                    {
+                        "date": "2026-10-13",
+                        "previous_blob": "09775738e2214172975f9c0f30d25a6bb29ab48d",
+                        "change": (
+                            "Review W2 (AUR2) fixes: the 1.5 degree comparison is described as a resolution/data-product shift "
+                            "that does not isolate resolution; the fixed inherited recipe, the re-used October 2021 test window "
+                            "and the non-binding epoch selection are stated; the quoted reference numbers name their run; "
+                            "prediction prompts, collapsed exercise answers, a diurnal-cycle note with a printed 2 m temperature "
+                            "table, documented environment variables, notebook_kind and References with licences. Default-path "
+                            "computation unchanged; the test cell prints one extra table from values it already computed."
+                        ),
+                    },
+                    {
+                        "date": "2026-10-13",
+                        "previous_blob": "1eed1127b5dfa3230ba8f6a06ebab626540a1505",
+                        "change": (
+                            "Peer-review follow-up: a fresh zero-update LoRA model before every adaptation (a re-run no longer "
+                            "continues training); the test is a temporally separate, development-reused evaluation window, with "
+                            "development reuse and pretrained-checkpoint exposure (unknown) exported separately; the built-in "
+                            "times are checked against the store's time coordinate and the exact dates replace month labels; "
+                            "the soil-type count is computed from the loaded field; macro-average naming and the defined-ratio "
+                            "denominator; selection-objective, diurnal, control-design, leakage and training-vocabulary wording."
+                        ),
+                    },
+                    {
+                        "date": "2026-10-13",
+                        "previous_blob": "3b5dbc429481f799d1787fd1d7f18e022f2591de",
+                        "change": (
+                            "Owner decisions on review W2: AUR2-M1 option C (the lesson is a domain shift to the WeatherBench2 "
+                            "1.5 degree data product; resolution is no longer the headline); AUR2-M2 option C (up to 30 epochs "
+                            "with early stopping, patience 3, so validation selection can bind; default numbers change); "
+                            "AUR2-m4 option A (NOTEBOOK_SPEC 2.5: declaration, use notice, problem statement, data context, "
+                            "what did not work, IEEE numbered references, licences)."
                         ),
                     },
                 ],

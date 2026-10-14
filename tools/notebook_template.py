@@ -635,7 +635,7 @@ TEMPLATE = {
                 "| \"… is missing: run the stage that writes it\" | A later cell ran before an earlier one, or a Section 5 re-run cleared it. Run from Section 5 to the end. |\n"
                 "| \"the adapter was trained before the data or settings changed\" | Re-run from Section 8. |\n"
                 "| Out of memory | Use the default settings; a CPU runtime needs about 4 GB of RAM for the model and the four windows. |\n"
-                "| Section 9 reports that the adapted model does not beat the frozen model | A legitimate result outside the default configuration: read the persistence column first. On the default configuration the stage stops, because the recorded runs improved; keep the logs and report it. |\n"
+                "| Section 9 reports that the adapted model does not beat the frozen model | A legitimate result outside the default configuration: read the persistence column first. On the default configuration the stage stops: that stop is a default-path regression check against the recorded run, not a scientific test (the default recipe was developed on this test window); keep the logs and report it. |\n"
                 "| Reload parity fails | Do not use the export. Rerun from Section 8; if it persists, keep the logs and report it. |\n\n"
                 "Nothing is installed into the kernel, so no runtime restart is ever needed."
             ),

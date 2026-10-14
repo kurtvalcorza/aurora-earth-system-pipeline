@@ -197,8 +197,8 @@ def test_existing_cell_ids_are_kept_and_metadata_records_the_revision():
     env = meta["isolated_environment"]
     assert env["platform"] == "linux-x86_64" and env["managed_python"] == "3.12.12" and env["kernel_installs"] is False
     assert env["lock_sha256"] == hashlib.sha256(LOCK.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
-    assert meta["revisions"][-1]["date"] == "2026-10-03"
-    assert meta["revisions"][-1]["previous_blob"] == "385da6db6424b92fdec83f82a0e68f08abeed02e"
+    uv_revision = [r for r in meta["revisions"] if r["date"] == "2026-10-03"]
+    assert len(uv_revision) == 1 and uv_revision[0]["previous_blob"] == "385da6db6424b92fdec83f82a0e68f08abeed02e"
 
 
 def _runtime_namespace():

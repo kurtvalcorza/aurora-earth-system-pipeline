@@ -608,8 +608,13 @@ def stage_evaluate(run: Run) -> None:
     verdict = "the adapted model beats the frozen model at " + first if outcome["adapted_mean_skill_below_frozen"] else "the adapted model does NOT beat the frozen model at " + first
     print({"outcome": verdict, **outcome, "report": f"outputs/{STEM}_evaluation_report.json"})
     if outcome["default_configuration"] and not (outcome["adapted_mean_skill_below_frozen"] and outcome["more_variables_beat_persistence"]):
-        # Default-path verification only: on the default sample and settings the recorded runs improve both numbers.
-        raise RuntimeError(f"default configuration, but the expected improvement did not occur: {summary[first]}")
+        # A default-path regression check against the recorded run, not a scientific test: the default recipe and this
+        # test window were developed together, and on the default sample and settings the recorded runs improve both
+        # numbers. Stopping here says only that the default path no longer reproduces the recorded result.
+        raise RuntimeError(
+            "default-path regression check against the recorded run failed (not a scientific test): on the default "
+            f"configuration the recorded runs improve on the frozen model and on persistence here, and this run did not: {summary[first]}"
+        )
 
 
 def stage_forecast(run: Run) -> None:

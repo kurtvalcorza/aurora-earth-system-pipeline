@@ -1,0 +1,261 @@
+# ruff: noqa: E501
+"""Regression tests for review W2 of the weather workshop (AUR2-M1, AUR2-M2, AUR2-m1..m5, 2026-10-13).
+
+Markdown and metadata checks on the generated notebook, plus the wording of the carrier's default-path gate.
+Standard library only, matching CI's lightweight dependencies.
+"""
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+NOTEBOOK = REPO / "tutorials" / "DIMER_Weather_and_Earth_System_Forecasting_Workshop.ipynb"
+
+
+def notebook():
+    return json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+
+
+def markdown():
+    return [(i, "".join(c["source"])) for i, c in enumerate(notebook()["cells"]) if c["cell_type"] == "markdown"]
+
+
+def cell_with(heading):
+    hits = [t for _, t in markdown() if t.startswith(heading)]
+    assert len(hits) == 1, heading
+    return hits[0]
+
+
+def test_m1_resolution_is_not_presented_as_the_isolated_cause():
+    opening = markdown()[0][1]
+    assert "does not isolate" in opening and "plausible contributor" in opening
+    assert "non-integer codes" in opening and "no matched control" in opening
+    assert "### Core lesson: domain shift" in opening and "resolution" not in opening.split("### Core lesson")[0].lower()
+    rows = [line for _, t in markdown() for line in t.splitlines() if line.startswith("| frozen model loses to persistence")]
+    assert len(rows) == 1 and "not isolated" in rows[0] and "OOD setup" not in rows[0]
+    checkpoint = cell_with("## Interpretation checkpoint")
+    assert "hypothesis" in checkpoint and "soil-type" in checkpoint
+    assert "expected to notice that change" not in checkpoint
+
+
+def test_m2_fixed_recipe_reused_window_and_non_binding_selection_are_stated():
+    section12 = cell_with("# 12. LoRA adaptation")
+    assert "inherited from this repository's primary Aurora tutorial" in section12 and "still decreasing" in section12
+    assert "up to 30 epochs" in section12 and "3 epochs in a row" in section12
+    assert "The test reports something different" in section12
+    section14 = cell_with("# 14. Freeze the experiment")
+    assert "within this run only" in section14 and "development-reused evaluation window" in section14
+    assert "default-path regression check against its recorded runs, not a scientific test" in section14
+    assert not any(t.startswith("# 15. Independent test") for _, t in markdown())
+
+
+def test_m2_carrier_gate_is_worded_as_a_default_path_regression_check():
+    stages = (REPO / "tools" / "tutorial_stages.py").read_text(encoding="utf-8")
+    assert "default-path regression check against the recorded run failed (not a scientific test)" in stages
+    assert "expected improvement did not occur" not in stages
+
+
+def test_m1_minor_quoted_numbers_are_sourced_and_timing_is_current():
+    reference = cell_with("## Reference expectation")
+    assert "not re-run here" in reference and "`b5c8494`" in reference and "`09775738`" in reference
+    assert "clean" not in reference.lower()
+    assert all(v in reference for v in ("0.914", "0.867", "0.888", "0.997"))
+    text = "\n".join(t for _, t in markdown())
+    assert "must receive its own clean-runtime timing" not in text and "207.8 s" in text
+
+
+def test_m2_minor_diurnal_note_and_printed_2t_rows():
+    reference = cell_with("## Reference expectation")
+    assert "diurnal" in reference and "1.589" in reference
+    test_cell = next("".join(c["source"]) for c in notebook()["cells"] if c["id"] == "dimer-weather-workshop-33")
+    assert 'variable_table[variable_table["variable"] == "2t"]' in test_cell and ".to_string(index=False)" in test_cell
+
+
+def test_m3_prediction_prompts_and_collapsed_answers():
+    for heading in ("# 11. Frozen Aurora", "# 12. LoRA adaptation", "# 15. Test on a temporally separate"):
+        assert "Predict before you run" in cell_with(heading), heading
+    assert "Exercise 1 — persistence (answer before you run section 11)" in cell_with("# 10. Persistence first")
+    exercises = cell_with("# 24. Exercises")
+    assert exercises.count("<details>") == 5
+    assert "<details>" in cell_with("# 8. Area weighting")
+
+
+def test_m4_kind_references_and_licences():
+    meta = notebook()["metadata"]["dimer"]
+    assert meta["notebook_kind"] == "WORKSHOP" and meta["notebook_spec"] == "2.5"
+    refs = [t for _, t in markdown() if re.search(r"^## References$", t, re.M)]
+    assert len(refs) == 1
+    for needle in ("10.1038/s41586-025-09005-y", "10.1002/qj.3803", "10.1029/2023MS004019", "**MIT licence**", "Licence to use Copernicus Products"):
+        assert needle in refs[0], needle
+
+
+def test_m5_environment_variables_are_documented():
+    section1 = cell_with("## 1. Build the isolated runtime")
+    assert "`DIMER_ISOLATED_ENV`" in section1 and "`DIMER_NOTEBOOK_CI_PREINSTALLED=1`" in section1
+
+
+# ---------------------------------------------------------------- peer-review follow-up (CX1..CX11)
+EVAL = "temporally separate, development-reused evaluation window"
+
+
+def code_cell(cell_id):
+    return next("".join(c["source"]) for c in notebook()["cells"] if c["id"] == cell_id)
+
+
+def test_cx1_evaluation_window_is_named_consistently_and_exposures_are_recorded():
+    nb = notebook()
+    assert nb["metadata"]["dimer"]["evaluation_window"]["description"] == EVAL
+    assert nb["metadata"]["dimer"]["evaluation_window"]["pretrained_checkpoint_exposure"] == "unknown"
+    assert code_cell("dimer-weather-workshop-33").startswith(f"# @title Test comparison on the {EVAL}")
+    export = code_cell("dimer-weather-workshop-51")
+    assert "independent two-day test window" not in export
+    assert '"development_reuse":' in export and '"pretrained_checkpoint_exposure": "unknown' in export
+    assert all("Independent test" not in "".join(c["source"]) for c in nb["cells"])
+
+
+class _P:
+    def __init__(self, value):
+        self.value = value
+
+    def detach(self):
+        return self
+
+    def abs(self):
+        return _P(abs(self.value))
+
+    def max(self):
+        return self.value
+
+
+class _Model:
+    def __init__(self):
+        self.params = {"block.lora_A": _P(0.3), "block.lora_B": _P(0.0)}
+
+    def named_parameters(self):
+        return list(self.params.items())
+
+
+def _fresh_adaptable_model_namespace():
+    import ast
+
+    src = code_cell("dimer-weather-workshop-27")
+    tree = ast.parse(src)
+    fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "fresh_adaptable_model")
+    built = []
+
+    def build_aurora(use_lora):
+        assert use_lora is True
+        built.append(_Model())
+        return built[-1]
+
+    ns = {"build_aurora": build_aurora}
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), "cell", "exec"), ns)
+    return ns, built
+
+
+def test_cx3_a_second_adaptation_starts_from_a_zero_update_model():
+    ns, built = _fresh_adaptable_model_namespace()
+    first = ns["fresh_adaptable_model"]()
+    first.params["block.lora_B"] = _P(0.25)  # what a completed adaptation leaves behind
+    second = ns["fresh_adaptable_model"]()
+    assert second is not first and len(built) == 2 and second.params["block.lora_B"].value == 0.0
+    src = code_cell("dimer-weather-workshop-27")
+    assert src.index("adapted_model = fresh_adaptable_model()") < src.index("adaptation = adapt_model(")
+
+
+def test_cx3_a_model_with_a_nonzero_update_is_refused():
+    ns, built = _fresh_adaptable_model_namespace()
+    ns["build_aurora"] = lambda use_lora: type("M", (), {"named_parameters": lambda self: [("x.lora_B", _P(0.1))]})()
+    try:
+        ns["fresh_adaptable_model"]()
+    except RuntimeError as exc:
+        assert "zero effective LoRA update" in str(exc)
+    else:
+        raise AssertionError("a non-zero LoRA update was accepted")
+
+
+def test_cx7_store_times_are_checked_and_month_labels_follow_the_dates():
+    loader = code_cell("dimer-weather-workshop-14")
+    assert 'ds["time"].isel(time=sl)' in loader and "if store_times != times:" in loader
+    data = cell_with("# 5. Real ERA5 / WeatherBench2 data")
+    assert "2021-09-30 00:00 – 2021-10-01 18:00" in data and "2018-12-31 00:00 – 2019-01-01 18:00" in data
+    assert "| Test | October 2021 |" not in data
+    text = "\n".join(t for _, t in markdown())
+    assert "October 2021" not in text.replace("1 October 2021", "")
+
+
+def test_cx7_window_dates_follow_from_the_wb2_epoch_and_chunk_index():
+    import datetime as dt
+
+    expected = {10957: "2018-12-31", 11048: "2019-07-01", 11185: "2020-03-31", 11459: "2021-09-30"}
+    for chunk, start in expected.items():
+        assert (dt.datetime(1959, 1, 1) + dt.timedelta(hours=6 * chunk * 8)).date().isoformat() == start
+
+
+def test_cx8_soil_type_count_is_computed_from_the_loaded_field():
+    loader = code_cell("dimer-weather-workshop-14")
+    assert 'np.abs(_slt - np.round(_slt)) > 1e-3' in loader and "print(soil_type_check)" in loader
+    assert "Section 6 counts them in the loaded field" in markdown()[0][1]
+
+
+def test_cx4_cx5_cx6_cx9_cx10_cx11_wording():
+    text = "\n".join(t for _, t in markdown())
+    assert "the epoch budget, not validation, chose" not in text
+    assert "protects only the selection objective" in text and "**unweighted**" in text
+    assert "genuinely untouched period" in text and "| restart;" not in text
+    assert "nine-variable macro-average RMSE ratio" in text
+    assert '"variables": 9' not in code_cell("dimer-weather-workshop-33")
+    assert "variables_with_defined_ratio" in code_cell("dimer-weather-workshop-33")
+    assert "consistent with the diurnal component returning approximately to phase" in text and "That is why" not in text
+    assert "tests that one preprocessing choice" in text
+    assert "zero-initialized" not in text and "**effective update**" in text
+    for term in ("| **Parameter** |", "| **Loss** |", "| **Epoch** |", "| **Optimizer** |", "| **Training / validation / test** |"):
+        assert term in text, term
+
+
+# ---------------------------------------------------------------- owner decisions 2026-10-13 (M1=C, M2=C, m4=A)
+
+
+def test_owner_m2c_early_stopping_lets_validation_selection_bind():
+    controls = code_cell("dimer-weather-workshop-04")
+    assert "EPOCHS = 30 " in controls and "PATIENCE = 3 " in controls and "PATIENCE must be in 1..EPOCHS" in controls
+    adapt = code_cell("dimer-weather-workshop-27")
+    assert "if since_best >= patience:" in adapt and "break" in adapt and "patience=PATIENCE" in adapt
+    assert '"selection_at_budget": best_epoch == epochs' in adapt
+    assert "the selection reached the budget, not a minimum" in adapt
+    meta = notebook()["metadata"]["dimer"]["adaptation_selection"]
+    assert (meta["max_epochs"], meta["patience"]) == (30, 3)
+
+
+def _early_stopping_loop(val_losses, epochs, patience):
+    """The notebook's selection rule, replayed on a list of validation losses (index 0 = epoch 0)."""
+    src = code_cell("dimer-weather-workshop-27")
+    assert "if val_loss < best_val:" in src and "since_best += 1" in src
+    best_val, best_epoch, since_best, run = val_losses[0], 0, 0, 0
+    for epoch in range(1, epochs + 1):
+        run = epoch
+        if val_losses[epoch] < best_val:
+            best_val, best_epoch, since_best = val_losses[epoch], epoch, 0
+        else:
+            since_best += 1
+            if since_best >= patience:
+                break
+    return best_epoch, run
+
+
+def test_owner_m2c_selection_rule_examples():
+    assert _early_stopping_loop([1.0, 0.8, 0.7, 0.75, 0.76, 0.77] + [0.1] * 25, 30, 3) == (2, 5)
+    assert _early_stopping_loop([1.0] + [1.0 - 0.01 * i for i in range(1, 31)], 30, 3) == (30, 30)
+    assert _early_stopping_loop([1.0, 1.1, 1.2, 1.3] + [0.0] * 27, 30, 3) == (0, 3)
+
+
+def test_owner_m4a_write_up_layer_and_notice():
+    cells = notebook()["cells"]
+    first_code = next(i for i, c in enumerate(cells) if c["cell_type"] == "code")
+    opening = "\n".join("".join(c["source"]) for c in cells[:first_code])
+    assert "> **⚠️ Notice.** For research, training and evaluation only." in opening
+    assert "**Notebook specification:** `2.5`" in opening and "### Problem statement" in opening
+    text = "\n".join(t for _, t in markdown())
+    assert "### Data context" in text and "## What did not work" in text and "## Licences" in text
