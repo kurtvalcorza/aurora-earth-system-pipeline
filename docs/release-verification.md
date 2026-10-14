@@ -233,7 +233,43 @@ The primary tutorial's default-path stop in `tools/tutorial_stages.py` is unchan
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
+| 2026-10-14 | `15d0cea` / `f9710f33` | Colab CLI 0.7.4, fresh Colab Tesla T4; kernel Python 3.13.15, isolated environment CPython 3.12.12 with `torch 2.14.0+cu130`, NumPy 2.5.3, `cuda`; CLI sequential execution (`colab exec -f`), not a browser `Run all`, so the saved notebook has no execution counts; cell order is taken from `exec.log` (cells 1..25 in sequence) | Default settings only (every form control at its default; activity and BYOD off); no repository checkout, empty Hugging Face cache | 398.1 s | **PASS, one pass, no restart, 0 errors** — 25/25 code cells; early stopping triggered after epoch 28, best epoch 25; see [Colab CLI T4 run of `15d0cea`](#colab-cli-t4-run-of-15d0cea-owner-decisions-epochs-30-patience-3--2026-10-14) |
 | 2026-10-03 | `b5c8494` / `09775738` | Colab CLI 0.7.4, fresh Colab Tesla T4; kernel Python 3.13.15, isolated environment CPython 3.12.12 with `torch 2.14.0+cu130`, NumPy 2.5.3, `cuda`; CLI sequential execution (`colab exec -f`), not a browser `Run all`, so the saved notebook has no execution counts; cell order is taken from `exec.log` (cells 1..25 in sequence) | Default settings only (every form control at its default; activity and BYOD off); no repository checkout, empty Hugging Face cache | 207.8 s | **PASS, one pass, no restart, 0 errors** — 25/25 code cells; default results identical to the 2026-09-28 Colab run of `4f4fe8e`; see [Colab CLI T4 run of `b5c8494`](#colab-cli-t4-run-of-b5c8494-uv-isolated-environment--2026-10-03) |
+
+### Colab CLI T4 run of `15d0cea` (owner decisions; epochs 30, patience 3) — 2026-10-14
+
+Executed notebook: [`execution-evidence/2026-10-14/DIMER_Weather_and_Earth_System_Forecasting_Workshop_15d0cea_colab-cli-t4.ipynb`](execution-evidence/2026-10-14/DIMER_Weather_and_Earth_System_Forecasting_Workshop_15d0cea_colab-cli-t4.ipynb), SHA-256 `68d2b82fdecf06c517b40c4ec05ad1cb83037bfb373a7e02ab8a07dd32f5e227`, the Colab CLI output notebook copied byte for byte (run id `20261014T142927Z-846`; session started 14:27:52Z, finished 14:34:30Z).
+
+Source match: the executor fetched the notebook from GitHub at `15d0ceae95f286524dc670ccab8382efbf234bc2` and verified its Git blob `f9710f33604c5e64941ce7f25d8803bacfa748c2` before allocating the VM. All 63 cell ids, their order and every cell source in the executed file are identical to that blob; no form control was changed. This is the first hosted run of the owner-decision design; the runs below are of earlier blobs.
+
+Runtime: Colab CLI 0.7.4, fresh Colab Tesla T4 session (released after the run). Kernel Python 3.13.15; Section 1 built the isolated environment (CPython 3.12.12, 107 locked packages, 56 s) and every later cell ran in it: `torch 2.14.0+cu130`, `microsoft-aurora 2.0.1`, `xarray 2026.7.0`, NumPy 2.5.3, `versions_match_lock: True`, device `cuda`. Wall time 398.1 s for the whole notebook; training took 174.5 s (the estimate above was about 6 minutes in total). Peak VRAM was not recorded.
+
+Executed cells: 25 of 25 code cells, in order 1..25 per `exec.log`, zero error outputs, no restart. The CLI does not set execution counts.
+
+Early stopping: the run printed `{'early_stop': 'no validation improvement for 3 epochs', 'stopped_after_epoch': 28}` and `{'best_epoch': 25, 'epochs_run': 28, 'stopped_early': True}`; validation selection bound (best validation loss 0.040711 at epoch 25; epochs 26–28 0.040939, 0.045812, 0.042861). It did not run to 30.
+
+Results, compared with the `b5c8494` run below by `difflib` on normalised output lines and on every rendered table row:
+
+- Identical: persistence and frozen scores on the test window to full printed precision (mean RMSE ratio frozen 1.568 / 1.328 / 1.237 / 1.294 at 6 / 12 / 18 / 24 h; frozen variables beating persistence 1 / 1 / 1 / 2), the epoch 1–6 training history (epoch 6 train loss 0.049367986619472504, val loss 0.05363894316057364), 540,672 trainable parameters, adapter size 2,173,200 bytes, reload parity 0.0 / 0.0 with consumer checks PASS, 30 files in the report bundle.
+- Differ, explained by AUR2-M2 option C (up to 30 epochs, patience 3): best epoch 6 → 25 (28 run); test mean RMSE ratio adapted 0.914 → 0.794 (6 h), 0.867 → 0.735 (12 h), 0.888 → 0.765 (18 h), 0.997 → 0.872 (24 h); adapted variables beating persistence 6 → 8, 8 → 8, 7 → 9, 6 → 8 (of 9); every adapted per-variable RMSE (for example the 2 m temperature ratio at 24 h 1.589 → 1.211 and z500 at 6 h 1.174 → 1.098, both still above persistence); the new-origin forecast table; the adapter SHA-256 (`23043cf9bceb…` → `8b15af4d2d0f…`); `experiment_sha256` (`30f9cc24a516…` → `653f6d96a7ea…`) and the report-bundle SHA-256, which hold the recipe, run id and timings.
+- Differ, explained by the review fixes in `45c9139` / `1de4ee1` / `15d0cea`: the printed soil-type count line, the 2 m temperature table against persistence, the `variables_with_defined_ratio` column name, `notebook_spec` 2.1 → 2.5, `epochs` 6 → 30 and `patience` 3 in the controls line; plus the run id, worker pid and environment build time.
+- The default path did not stop: under AUR2-M1/M2 option C the workshop no longer raises when the adapted model does not beat frozen and persistence; on this run it beat both at every lead on the mean ratio.
+- Primary tutorial gate: the `tools/tutorial_stages.py` default-path stop still checks the primary tutorial's own fixed six-epoch recipe (`DEFAULT_TRAINING` epochs 6); this PR changes only its message text, so this run does not bear on it.
+
+| Journey | Verdict |
+|---|---|
+| Default path, fresh runtime, one pass with no restart | Pass |
+| Isolated environment build (hash-locked, wheel-only) | Pass |
+| Section 4 audit and conversion with pinned converted digests | Pass |
+| Adaptation with early stopping (patience 3) | Pass — stopped after epoch 28, best epoch 25 |
+| Freeze → temporally separate, development-reused evaluation window | Pass |
+| Fresh-directory reload with consumer checks | Pass |
+| Longer-rollout activity | Not assessed in this run (default off) |
+| BYOD NetCDF (valid and invalid) | Not assessed in this run |
+
+Evidence boundary: Colab CLI sequential execution on a fresh T4, not a browser `Run all`; default path only; forms were not rendered and no upload dialog was answered; the report ZIP bytes were not retained. Status remains **Candidate**, and `metadata.dimer.clean_runtime_evidence` stays `pending` as authored.
+
+Still open: the regenerated carrier `tutorials/aurora_earth_system_colab.ipynb` (message text only in this PR) has no hosted run of its new blob; hosted BYOD NetCDF qualification (valid and invalid); the longer-rollout activity on the new blob; consumption of an exported adapter by `AuroraPipeline.from_artifact`; the 57-object data-pin parity; peak VRAM.
 
 ### Colab CLI T4 run of `b5c8494` (uv isolated environment) — 2026-10-03
 
