@@ -43,7 +43,8 @@ from pathlib import Path
 from typing import Any
 
 GENERATOR_VERSION = "build_notebook.py/3.0"
-NOTEBOOK_SPEC = "2.2"
+NOTEBOOK_SPEC = "2.5"
+NOTEBOOK_SPEC_SOURCE = "ml-worker integrations/dimer/fleet-specs/NOTEBOOK_SPEC.md at dd64986fa6e5a99f2b928229dd69327db5b3b897"
 SOURCE_RECORD = "source.json"
 
 
@@ -331,8 +332,17 @@ def run_stage(stage, *options):
         detail = 'see the log above'
         if error_file.is_file():
             error = json.loads(error_file.read_text(encoding='utf-8'))
+            if error.get('refusal'):
+                raise StageRefused(error['message'])
             detail = error['type'] + ': ' + error['message']
         raise RuntimeError(f'Stage {{stage!r}} failed (exit {{process.returncode}}): {{detail}}')
+
+
+class StageRefused(Exception):
+    \"\"\"A refused input or setting: shown as one message, without a traceback, and Run all stops here.\"\"\"
+
+    def _render_traceback_(self):
+        return ['REFUSED: ' + str(self)]
 
 
 def load_record(name):
@@ -345,18 +355,18 @@ def obtain_upload(path_text, suffix, field):
     if path_text.strip():
         path = Path(path_text).expanduser()
         if not path.is_file():
-            raise FileNotFoundError(f'{{field}} = {{path_text!r}} is not a file on this machine; fix the path or leave it empty to upload in Colab')
+            raise StageRefused(f'{{field}} = {{path_text!r}} is not a file on this machine; fix the path, or leave it empty to upload in Colab')
         return path.resolve()
     try:
         from google.colab import files
     except ImportError as exc:
-        raise RuntimeError(f'The upload dialog needs Google Colab. Elsewhere, put the file on this machine and set {{field}} to its path.') from exc
+        raise StageRefused(f'The upload dialog needs Google Colab. Elsewhere, put the file on this machine and set {{field}} to its path.') from exc
     uploaded = files.upload()
     if len(uploaded) != 1:
-        raise ValueError(f'upload exactly one {{suffix}} file')
+        raise StageRefused(f'upload exactly one {{suffix}} file (got {{len(uploaded)}}); run the cell again')
     name, payload = next(iter(uploaded.items()))
     if not name.lower().endswith(suffix):
-        raise ValueError(f'the uploaded file must end in {{suffix}}, got {{name!r}}')
+        raise StageRefused(f'the uploaded file must end in {{suffix}}, got {{name!r}}; run the cell again')
     path = ROOT / 'byod' / Path(name).name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)
@@ -414,8 +424,10 @@ def render(repo: Path, template: dict[str, Any], revision: str | None = None) ->
         f"# {template['title']}\n\n{badges}\n\n"
         f"**Profile:** `{template['profile']}`  \n"
         f"**Mode:** `{mode}`  \n"
+        f"**Kind:** `{template.get('notebook_kind', 'TUTORIAL')}`  \n"
         f"**Notebook specification:** DIMER Notebook Specification {NOTEBOOK_SPEC} — **standalone** (§4)  \n"
         f"**Capability:** {template['capability']}\n\n"
+        "> **Notice.** For research, training and evaluation only. Not validated for production, clinical, diagnostic or safety-critical use, and not a weather-warning service or an operational forecast. Running this notebook downloads third-party model weights and datasets under their own licences (see the model card) and uses compute on your own Colab or Kaggle account. Data you bring stays in your runtime, and you are responsible for having the right to use it. Results here are tutorial evidence, not benchmarks. Everything is provided as is, without warranty of any kind; to the maximum extent permitted by law, the maintainers and the DIMER platform accept no liability for its use.\n\n"
         f"**This notebook is standalone.** Section 2 carries the repository's package ({len(ctx['modules'])} modules under "
         f"`src/{ctx['pkg']}/`, at revision `{ctx['revision'][:12]}`), the stage runner, the hash-locked requirements "
         f"({ctx['lock_packages']} packages), the pinned snapshot manifests and the licence, and verifies every carried file "
@@ -469,6 +481,8 @@ def render(repo: Path, template: dict[str, Any], revision: str | None = None) ->
                 "notebook_profile": template["profile"],
                 "notebook_mode": mode,
                 "notebook_spec": NOTEBOOK_SPEC,
+                "notebook_spec_source": NOTEBOOK_SPEC_SOURCE,
+                "notebook_kind": template.get("notebook_kind", "TUTORIAL"),
                 "standalone": True,
                 "requires_dimer_worker": False,
                 "environment": "isolated hash-locked uv environment; nothing installed into the kernel",

@@ -74,7 +74,7 @@ def test_m1_kernel_installs_nothing_and_never_asks_for_a_restart():
     assert "sys.executable" not in code and "'-m', 'pip'" not in code and "pip install" not in code
     assert "Restart the runtime" not in code and "packages_distributions" not in code
     assert "'--require-hashes', '--only-binary', ':all:'" in code
-    assert build.GENERATOR_VERSION == "build_notebook.py/3.0" and build.NOTEBOOK_SPEC == "2.2"
+    assert build.GENERATOR_VERSION == "build_notebook.py/3.0" and build.NOTEBOOK_SPEC == "2.5"
     md = _markdown().lower()
     assert "restart" not in md.replace("no runtime restart", "").replace("no restart", "")
 
@@ -165,14 +165,15 @@ def test_m3_a_short_byod_window_is_refused_in_section_5(tmp_path, forbid_model_i
     with pytest.raises(ValueError, match="has 5 6-hourly steps; ROLLOUT_STEPS = 4 and MAX_LEAD_STEPS = 4 need at least 6"):
         stages.stage_data(run)
     assert not (run.state / "data.json").exists(), "a refused window must not leave a usable settings record"
-    # After an accepted run, a refused window leaves that run's records (and its sample file) untouched.
+    # DAT20 (row-2 review R2-m8): after an accepted run, a refused window invalidates the run -- the earlier
+    # configuration's records are removed, so none can be read as a result of the refused one.
     good = _run(tmp_path, byod=str(_nc(tmp_path, 6, "good.nc")))
     stages.stage_data(good)
-    before = good.read_state("data.json", "test")
-    with pytest.raises(ValueError, match="need at least 6"):
+    assert (good.state / "data.json").is_file()
+    with pytest.raises(stages.Refusal, match="need at least 6"):
         stages.stage_data(_run(tmp_path, byod=str(_nc(tmp_path, 5, "short.nc"))))
-    assert good.read_state("data.json", "test") == before
-    assert (good.out / "aurora_earth_system_sample_window.nc").is_file()
+    assert not (good.state / "data.json").exists()
+    assert not (good.out / "aurora_earth_system_sample_window.nc").exists()
 
 
 def test_m3_the_sample_file_section_5_writes_is_a_valid_byod_input(tmp_path, forbid_model_imports, capsys):
@@ -224,7 +225,7 @@ def test_m4_activity_refuses_the_canonical_scope(tmp_path, forbid_model_imports)
 
 def test_m1_pretraining_overlap_is_addressed_with_a_source():
     md = _markdown()
-    assert "**Pretraining overlap.**" in md and "**cannot be ruled out**" in md
+    assert "**Pretraining overlap (DAT9).**" in md and "HRES 0.25° 2016–2020" in md and "2022 fresh test" in md
     assert "https://microsoft.github.io/aurora/models.html" in md
 
 
@@ -236,7 +237,7 @@ def test_m2_outcome_is_printed_and_only_the_default_configuration_must_improve()
     assert not stages.is_default({**data, "source": "byod"}, dict(stages.DEFAULT_TRAINING))
     assert not stages.is_default(data, {**stages.DEFAULT_TRAINING, "trainable": "lora+heads"})
     md = _markdown()
-    assert "Watch the validation loss fall by two thirds" not in md and "a negative result is a legitimate finding" in md
+    assert "Watch the validation loss fall by two thirds" not in md and "no test outcome ever stops the notebook" in md
 
 
 def test_m3_timings_name_their_environment():
@@ -265,10 +266,10 @@ def test_m4_byod_path_works_without_google_colab(tmp_path, monkeypatch):
     ns = _kernel_helpers(tmp_path)
     nc = _nc(tmp_path, 6)
     assert ns["obtain_upload"](str(nc), ".nc", "BYOD_PATH") == nc.resolve()
-    with pytest.raises(FileNotFoundError, match="BYOD_PATH"):
+    with pytest.raises(ns["StageRefused"], match="BYOD_PATH"):
         ns["obtain_upload"](str(tmp_path / "missing.nc"), ".nc", "BYOD_PATH")
     monkeypatch.setitem(sys.modules, "google.colab", None)
-    with pytest.raises(RuntimeError, match="set BYOD_PATH to its path"):
+    with pytest.raises(ns["StageRefused"], match="set BYOD_PATH to its path"):
         ns["obtain_upload"]("", ".nc", "BYOD_PATH")
     code = next(s for s in _kernel_code() if "BYOD_PATH = ''" in s)
     assert "from google.colab" not in code
@@ -277,8 +278,9 @@ def test_m4_byod_path_works_without_google_colab(tmp_path, monkeypatch):
 def test_m3_and_m4_short_byod_fails_in_the_kernel_with_the_stage_message(tmp_path):
     ns = _kernel_helpers(tmp_path)
     nc = _nc(tmp_path, 5)
-    with pytest.raises(RuntimeError, match=r"Stage 'data' failed \(exit 2\): ValueError: test window has 5 6-hourly steps"):
+    with pytest.raises(Exception, match=r"BYOD file refused: test window has 5 6-hourly steps") as caught:
         ns["run_stage"]("data", "--byod", nc)
+    assert type(caught.value).__name__ == "StageRefused" and caught.value._render_traceback_()[0].startswith("REFUSED: ")
 
 
 def test_m5_infrastructure_cells_are_titled_and_collapsed_and_warnings_are_not_hidden():

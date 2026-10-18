@@ -1,4 +1,4 @@
-"""Per-repository template for tools/build_notebook.py /3 (NOTEBOOK_SPEC 2.2 §4 standalone carrier, isolated environment).
+"""Per-repository template for tools/build_notebook.py /3 (NOTEBOOK_SPEC 2.5 §4 standalone carrier, isolated environment).
 
 Only the task-specific prose and the learner cells live here. The runtime check, the carrier of the package / stage
 runner / lock / manifest, the isolated install and the weight staging are produced by the generator from repository
@@ -32,6 +32,7 @@ TEMPLATE = {
     "notebook_name": "aurora_earth_system_colab.ipynb",
     "profile": "E2E",
     "mode": "GUIDED",
+    "notebook_kind": "TUTORIAL",
     "weights_key": "aurora-0.25-small",
     "carried": {
         "src/aurora_earth_system_pipeline/__init__.py": "src/aurora_earth_system_pipeline/__init__.py",
@@ -52,21 +53,23 @@ TEMPLATE = {
         "bytes": 20081404,
         "sha256": "aee9802f46bae436bd91751bb33ddeb379ef1596b5c19df193219d545d244b60",
     },
-    "disk_gib": {"weights": 1.5, "environment": 10},
+    "disk_gib": {"weights": 2.2, "environment": 10},
     "runtime_modules": ["torch", "timm", "xarray", "numcodecs"],
     "run_all": (
         "Selecting **Run all** in a fresh supported runtime checks the runtime, writes and hash-verifies the carried files, builds "
         "an isolated hash-locked Python environment (nothing is installed into the notebook kernel, so no restart is needed), "
         "stages and digest-verifies the pinned Aurora small checkpoint (451 MB) and static fields (12 MB) from the Hub, statically "
-        "audits both pickles against allow-lists and converts them once into safetensors with pinned digests, fetches four "
-        "two-day windows of real ERA5 reanalysis at 1.5° from WeatherBench 2 (about 196 MB of pinned, digest-verified Zarr chunks "
+        "audits both pickles against allow-lists and converts them once into safetensors with pinned digests, fetches seven "
+        "two-day windows of real ERA5 reanalysis at 1.5° from WeatherBench 2 (about 340 MB of pinned, digest-verified Zarr chunks "
         "— no credential), validates them against the schema and against the configured workflow and assigns them to training, "
-        "validation and test roles, rolls the frozen model out to 24 h and scores it per variable and lead time against the "
-        "persistence baseline, runs a bounded LoRA fine-tuning on one-step forecasts, scores the held-out window again at every "
-        "lead with the adapter rebuilt from its files, forecasts from a new origin and exports that forecast as NetCDF, reloads "
+        "validation and exposed-development-test roles, rolls the frozen model out to 24 h and scores it per variable and lead time against the "
+        "persistence baseline, runs the pre-registered three-configuration LoRA grid on a GPU (the recorded selection on CPU), "
+        "selects on four validation windows, scores the exposed development test with the adapter rebuilt from its files, "
+        "scores the pinned 12-window 2022 fresh test only when every pre-registered setting holds (a further 587 MB; never "
+        "with `DIMER_MASK_FRESH_TEST=1`), forecasts from a new origin and exports that forecast as NetCDF, reloads "
         "the adapter in another fresh process to verify forecast parity, and writes a provenance record. Every stage that runs "
         "the model builds it from the verified files in its own process. The default path needs no repository clone, DIMER "
-        "worker or service, credential, upload dialog, or configuration edit (NOTEBOOK_SPEC 2.2 §5, RUN1, RUN10)."
+        "worker or service, credential, upload dialog, or configuration edit (NOTEBOOK_SPEC 2.5 §5, RUN1, RUN10)."
     ),
     "byod": (
         "`USE_BYOD = True` in Section 5 replaces the pinned sample with your own gridded analyses as one NetCDF file "
@@ -77,8 +80,8 @@ TEMPLATE = {
         "one before any model runs, naming the step count and the fix. Section 5 writes a sample file of exactly that length "
         "in this shape. Put the file's path in `BYOD_PATH` (any runtime), or leave it empty for the Google Colab upload "
         "dialog. Your window then plays the training, validation and test roles through the same stages — validation, "
-        "baselines, adaptation, held-out evaluation, inference, export and reload parity — and the notebook says that one "
-        "window makes the held-out numbers not independent. Files stay in this runtime."
+        "baselines, adaptation, evaluation, inference, export and reload parity — and the notebook says that one "
+        "window makes the numbers not independent. A BYOD run is exploratory: it never scores the fresh test. Files stay in this runtime."
     ),
     "title": "Aurora 0.25° small — DIMER E2E weather-forecasting fine-tuning tutorial (standalone)",
     "badges": BADGES,
@@ -95,10 +98,13 @@ TEMPLATE = {
         "arrays), refuses anything outside those allow-lists, unpickles each exactly once through a restricted loader, and writes "
         "safetensors whose digests are pinned in the carried module. The model you run is rebuilt from the installed "
         "`microsoft-aurora` package and loads those files strictly. **The data is real ERA5 at 1.5°, not the model's native "
-        "0.25°.** Four two-day windows come from WeatherBench 2's public bucket as pinned, digest-verified Zarr chunks — a native "
+        "0.25°.** Two-day windows come from WeatherBench 2's public bucket as pinned, digest-verified Zarr chunks — a native "
         "window would be sixty times larger — so the frozen model runs six times coarser than it was trained, an out-of-distribution "
         "use. That is the honest setting for the adaptation contract: Section 7 measures the frozen model against persistence "
-        "at this resolution, and Section 9 measures what a 540 k-parameter LoRA fine-tuning on twelve one-step forecasts recovers."
+        "at this resolution, and Section 9 measures what a 540 k-parameter LoRA fine-tuning on twelve one-step forecasts recovers. "
+        "**The October 2021 window is an exposed development test:** the default recipe was developed and gated on it, so "
+        "its numbers are reported but never called independent. The independent estimate is a pinned, never-scored fresh "
+        "test of twelve 2022 windows, pre-registered in `docs/aurora-preregistration.md` and scored only under those settings."
     ),
     "learning_objectives": (
         "after this notebook you should be able to (1) explain what Aurora takes as input (two analyses six hours apart plus "
@@ -106,7 +112,8 @@ TEMPLATE = {
         "variable and lead time and the skill ratio against persistence, and explain why persistence for 2 m temperature "
         "improves again at 24 h; (3) explain why a model run on a grid six times coarser than its training grid can lose to "
         "persistence, and why windows must be split by period rather than by shuffling time steps; (4) adapt a foundation "
-        "model with LoRA, select the epoch on a validation window and judge the result on an independent test window; "
+        "model with LoRA, select the configuration and epoch on validation windows, and judge the result on a pre-registered "
+        "fresh test — telling it apart from an exposed development test; "
         "(5) export the adapter, rebuild the model from files in a new process and verify forecast parity; and (6) change "
         "one variable (the adaptation scope) and explain how the result changes by variable."
     ),
@@ -117,14 +124,15 @@ TEMPLATE = {
         "for an operational evaluation. The repository exposes none of these."
     ),
     "prerequisites": [
-        "- **Runtime:** a fresh Linux x86_64 runtime — Google Colab, Kaggle, or a Linux Jupyter server — with about 12 GB of free disk and about 4 GB of RAM. A GPU is used automatically when present (the default runtime type is a T4) but is not required: every stage also runs on CPU, in float32 on both. The stages run in CPython 3.12.12 inside the isolated environment, whatever Python the notebook kernel itself uses (Colab's kernel is 3.13). Windows and macOS kernels are not supported, because the hash-locked environment is built for manylinux x86_64.",
-        "- **Time (measured where stated, otherwise an estimate):** building the isolated environment and downloading about 660 MB of weights and data take a few minutes on a hosted runtime — an estimate that depends on the network. On the 2026-09-19 Kaggle T4 run of the previous, in-kernel version of this notebook the whole path took 283.5 s including downloads. On a Windows CPU workstation (a local pre-flight of this version, not a supported runtime) the six-epoch fine-tuning took about 3 minutes (192 s) and the learner stages of Sections 4–12 about 6 minutes; a hosted CPU runtime is usually slower than that workstation.",
+        "- **Runtime:** a fresh Linux x86_64 runtime — Google Colab, Kaggle, or a Linux Jupyter server — with about 12 GB of free disk and about 4 GB of RAM. A GPU is used automatically when present (the default runtime type is a T4) but is not required: every stage also runs on CPU, in float32 on both. A GPU runs the pre-registered validation grid; only a Tesla T4 run with every pre-registered setting scores the fresh test, and a CPU run trains the recorded selection and is exploratory. The stages run in CPython 3.12.12 inside the isolated environment, whatever Python the notebook kernel itself uses (Colab's kernel is 3.13). Windows and macOS kernels are not supported, because the hash-locked environment is built for manylinux x86_64.",
+        "- **Time (measured where stated, otherwise an estimate):** building the isolated environment and downloading about 660 MB of weights and data take a few minutes on a hosted runtime — an estimate that depends on the network. On the 2026-09-19 Kaggle T4 run of the previous, in-kernel version of this notebook the whole path took 283.5 s including downloads. On a Windows CPU workstation (a local pre-flight of this version, not a supported runtime) the six-epoch fine-tuning took about 3 minutes (192 s, with one validation window; the previous design) and the learner stages of Sections 4–12 about 6 minutes; a hosted CPU runtime is usually slower than that workstation. With four validation windows each epoch takes longer; the three-configuration grid on a T4 is estimated at 10–15 minutes (an estimate, not measured).",
         "- **Knowledge:** basic Python, and what a gridded atmospheric analysis is (pressure levels, surface fields, a latitude/longitude grid). Lead time, persistence, RMSE, the skill ratio and LoRA are explained where they are first used; the glossary collects them.",
         "- **Executable serialization handled explicitly:** the pinned checkpoint and static file are pickles. Each is digest-verified, statically audited against an allow-list (audit digests pinned) and unpickled **once** through a restricted loader to produce the safetensors the model is actually loaded from. No Hub-hosted Python module is imported; `microsoft-aurora` is installed from PyPI at a locked version and digest.",
         "- **Data contract:** a window is `{{lat, lon, levels, times, surf, atmos, static}}` on a global equiangular grid — latitudes spanning 90 to −90 (17..721 rows, a multiple of 4 or one more), longitudes covering 0 to 360 (32..1440 columns, a multiple of 4), exactly the 13 standard pressure levels, analyses spaced exactly 6 h apart, SI units (K, m/s, Pa, kg/kg, m²/s²) within plausibility ranges. The schema accepts 3..64 steps, but this workflow needs at least 2 + max(`ROLLOUT_STEPS`, `MAX_LEAD_STEPS`) — **6 at the defaults** — and Section 5 enforces that. The model predicts the rows the patch size covers (121 → 120 at 1.5°). BYOD accepts NetCDF in the shape of the sample file Section 5 writes.",
         "- **Validation is structural, not meteorological:** nothing checks that the fields are dynamically consistent, that the analysis is real, or that the resolution is one the model was trained on — a smooth random field within range is forecast without complaint.",
         "- **Privacy:** Do not upload confidential or restricted data to a hosted runtime unless you are authorized to process it there — a proprietary analysis or an embargoed forecast dataset is exactly that. The default path uploads nothing.",
-        "- **External access (data):** besides the Hub and PyPI, the default path fetches 57 pinned objects (about 196 MB) from the public WeatherBench 2 bucket `storage.googleapis.com/weatherbench2` over HTTPS, digest-verified before decoding; ERA5 is © ECMWF/Copernicus under the licence to use Copernicus products.",
+        "- **External access (data):** besides the Hub and PyPI, the default path fetches 86 pinned objects (about 340 MB) from the public WeatherBench 2 bucket `storage.googleapis.com/weatherbench2` over HTTPS, digest-verified before decoding, and on a pre-registered GPU run 108 more (587 MB, the fresh test); ERA5 is © ECMWF/Copernicus under the licence to use Copernicus products.",
+        "- **Environment variables:** `DIMER_MASK_FRESH_TEST=1` (set before the notebook starts) makes Section 9 skip fetching and scoring the fresh test; the run is then labelled masked. Nothing else is read from the environment. The stage runner sets `CUBLAS_WORKSPACE_CONFIG=:4096:8` itself for deterministic GPU training.",
     ],
     "guided": {
         "opening": [
@@ -157,7 +165,9 @@ TEMPLATE = {
                 "**Changing a setting.** After changing a Section 5 field (data or forecast settings), re-run from Section 5 to "
                 "the end: Section 5 checks the new settings against the window and clears every result computed for the old "
                 "ones, and a later section that needs a cleared result says which section to run. After changing a Section 8 "
-                "field, re-run from Section 8 to the end. Nothing else needs to be repeated.\n\n"
+                "field, re-run from Section 8 to the end. Nothing else needs to be repeated. **Any changed field, BYOD, the optional "
+                "activity or a troubleshooting change makes the run exploratory:** it is compared on validation and the exposed "
+                "development test only, never on the fresh test, and Section 9 lists the settings that differ.\n\n"
                 "**Section tags.** Each numbered heading carries one tag. **[Concept]** — what the model does and why. "
                 "**[Evaluation practice]** — how the evidence is produced and how to read it. **[Engineering]** — "
                 "reproducibility, provenance and packaging.\n\n"
@@ -214,7 +224,10 @@ TEMPLATE = {
                 "| **Frozen model** | The pretrained model with no adaptation (LoRA at zero). |\n"
                 "| **Out-of-distribution** | Inputs unlike the training data — here a grid six times coarser than the model was trained on. |\n"
                 "| **LoRA** | Low-rank adaptation: small trainable matrices added beside the attention projections; zero at the start, so the model begins as the pretrained one. |\n"
-                "| **Epoch / validation / test** | One pass over the 12 training samples; the validation window picks the epoch; the test window is used once, for the final score. |\n"
+                "| **Epoch / validation** | One pass over the 12 training samples; the four validation windows pick the epoch and the configuration. |\n"
+                "| **Exposed development test** | The October 2021 window: the default recipe was developed and gated on it, so it is reported but never called independent. |\n"
+                "| **Fresh test / pre-registration** | Twelve pinned 2022 windows never used for any choice, scored only under the settings fixed in `docs/aurora-preregistration.md` before any run. |\n"
+                "| **Exploratory run** | Any run that changes a pre-registered setting; it is compared on validation and the exposed development test only. |\n"
                 "| **Adapter** | The exported file holding only the trained LoRA tensors, with a manifest naming the base model it fits. |\n"
                 "| **NetCDF** | A self-describing file format for gridded data, with named dimensions, coordinates and units. |\n"
                 "| **Digest (SHA-256)** | A fingerprint of a file's bytes; a single changed byte changes it. |\n"
@@ -326,10 +339,12 @@ TEMPLATE = {
         {
             "md": (
                 "## 5. Windows, settings, validation and roles · [Evaluation practice]\n\n"
-                "The default dataset is real ERA5 reanalysis regridded to 1.5° by WeatherBench 2: four windows of eight "
-                "6-hourly analyses — two for training (late December 2018 / early January 2019, and July 2019), one for "
-                "validation (April 2020) and one for testing (October 2021) — distinct seasons and years, so nothing in the test "
-                "window is a near-duplicate of anything trained on. The `data` stage retrieves each Zarr chunk, `.zarray` "
+                "The default dataset is real ERA5 reanalysis regridded to 1.5° by WeatherBench 2, in windows of eight 6-hourly "
+                "analyses: two for training (late December 2018 / early January 2019, and July 2019), four for validation (April "
+                "2020, and January, April and July 2021), and the **exposed development test** (October 2021). The 12-window 2022 "
+                "**fresh test** is pinned but not fetched here; Section 9 fetches it only for a pre-registered scoring. New windows "
+                "are the chunk containing the 15th of the month, and every window's dates are checked against the store's pinned "
+                "time coordinate. The `data` stage retrieves each Zarr chunk, `.zarray` "
                 "descriptor and coordinate from the pinned table `WB2_OBJECTS` (byte size and SHA-256 per object), refuses a "
                 "mismatch before decoding, decodes Blosc/LZ4 with `numcodecs`, and reorders the arrays into the Aurora layout "
                 "(latitude 90 → −90, longitude 0 → 360). `validate_dataset` checks every window and the shared grid.\n\n"
@@ -338,15 +353,18 @@ TEMPLATE = {
                 "9. A window that passes the schema can still be too short for these settings, so the stage also checks the test "
                 "window against them: it needs 2 + max(`ROLLOUT_STEPS`, `MAX_LEAD_STEPS`) steps (6 at the defaults) and an "
                 "`ORIGIN` inside it. A shorter window is refused **here**, before any model runs, with the step count and the fix.\n\n"
-                "**Pretraining overlap.** Upstream does not publish the period the small checkpoint was trained on (its model "
-                "page describes it only as a smaller version of the pretrained model, and the paper's pretraining data include "
-                "decades of ERA5). So overlap between these 2018–2021 analyses and the checkpoint's pretraining data **cannot be "
-                "ruled out**: the frozen model may have seen these dates at 0.25°. The windows are independent of *each other* "
-                "(different years and seasons), which is what the train / validation / test reading below relies on.\n\n"
+                "**Pretraining overlap (DAT9).** The Aurora paper [4] documents pretraining on HRES 0.25° 2016–2020, GFS 2015–2020, "
+                "GEFS reforecasts 2000–2019 and IFS-ENS 2018–2020 (with 2020 as its pretraining validation year; ERA5 to 2020 is "
+                "inferred, its table row did not render), and 0.25° fine-tuning on HRES 2016–2021. Upstream gives no period for "
+                "the small checkpoint used here [3]. So the training windows (2019) and the April 2020 validation window fall "
+                "**inside** the large model's pretraining period, and the frozen model may have seen those dates at 0.25°; the "
+                "2021 validation windows and the exposed test fall outside it; the 2022 fresh test is the paper's own test year, "
+                "outside pretraining and the 0.25° fine-tune. The windows are independent of *each other* (different years and "
+                "seasons).\n\n"
                 "**BYOD:** set `USE_BYOD = True` and put a NetCDF path in `BYOD_PATH` (any runtime), or leave the path empty for "
                 "the Colab upload dialog. The file written below (`outputs/{stem}_sample_window.nc`) is a valid example: it is the "
                 "test window cut to exactly the length your settings need.\n\n"
-                "**Expected result:** four windows of 8 steps on a 121 × 240 grid, 24 forecast origins, the roles, "
+                "**Expected result:** seven windows of 8 steps on a 121 × 240 grid, 42 forecast origins, the roles, "
                 "`steps_needed_for_these_settings: 6`, `verdict: accepted`, the sample file, and five refusal probes — wrong "
                 "pressure levels, an odd longitude count, an implausible temperature field, irregular time spacing, and a window "
                 "one step too short for these settings — each rejected before any model runs."
@@ -428,8 +446,8 @@ TEMPLATE = {
                 "**Question tested:** at a resolution it was not trained for, is the frozen foundation model better than the "
                 "simplest possible forecast?\n\n"
                 "<details>\n<summary>Check your reasoning (open after answering)</summary>\n\n"
-                "On the default sample the frozen model loses: in the recorded runs its 6-hour mean skill was about 1.57, with "
-                "only one of nine variables beating persistence, and the gap narrowed with lead time as persistence decayed. "
+                "On the default sample the frozen model loses: in the 2026-09-19 Kaggle T4 run of revision 4a828fc its 6-hour mean "
+                "skill on the exposed development test was 1.568, with only one of nine variables beating persistence, and the gap narrowed with lead time as persistence decayed. "
                 "That is a resolution story, not an Aurora story — at its native 0.25° the published model is far ahead of "
                 "persistence. It is also the honest number the adaptation is read against: whatever Section 9 shows has to be "
                 "compared with this, not with zero.\n\n"
@@ -439,15 +457,25 @@ TEMPLATE = {
         # ------------------------------------------------------------------ 8. adapt
         {
             "md": (
-                "## 8. Bounded LoRA fine-tuning · [Concept]\n\n"
+                "## 8. Bounded LoRA fine-tuning and the validation grid · [Concept]\n\n"
                 "The `adapt` stage builds the frozen model afresh (it prints `lora_b_max_abs: 0.0` to show it starts from LoRA "
                 "at zero) and trains the 80 LoRA tensors (rank 8, 540,672 parameters — 0.5 % of the model) that the upstream "
                 "architecture places on the query/key/value and output projections of every backbone attention block, and "
                 "nothing else. Each training sample is one 6-hour forecast from one origin of one training window (12 samples "
                 "on the default data); the loss is the mean over the nine variables of the MSE divided by a fixed per-variable "
                 "scale, so a kelvin of temperature and a pascal of pressure count alike; AdamW at a fixed learning rate, seeded "
-                "shuffling, no scheduler. Epoch 0 records the frozen model, and the epoch with the lowest **validation** loss is "
-                "kept — the test window plays no part. The stage then exports the kept tensors as "
+                "shuffling, no scheduler. Epoch 0 records the frozen model, and the epoch with the lowest **validation** loss (mean "
+                "over the four validation windows) is kept — no test window plays any part.\n\n"
+                "**The pre-registered grid.** With the default fields on a GPU, the stage trains three configurations, each from "
+                "the frozen model: C0 (learning rate 1e-3, 6 epochs — the default), C1 (3e-4, 6 epochs) and C2 (1e-3, up to 30 "
+                "epochs, stopping after 3 epochs without improvement). It scores each on the four validation windows (6-hour "
+                "nine-variable mean skill ratio) and keeps C0 unless another is lower by at least 0.02; the frozen model is kept "
+                "unless the chosen configuration beats it by 0.02. Training is deterministic (cuDNN deterministic, deterministic "
+                "algorithms with no warn-only, `CUBLAS_WORKSPACE_CONFIG`, math attention, seed 0), and the stage prints a "
+                "`grid_hash` so two runs can be compared digit for digit. On CPU the grid is off: the stage trains the recorded "
+                "selection (C0 until a hosted record exists), and the run is exploratory. Changing a field trains your "
+                "configuration instead, also exploratory.\n\n"
+                "The selected adapter is exported as "
                 "`outputs/{stem}_adapter/adapter.safetensors` with a `manifest.json` (format, base model id, revision and "
                 "converted-base digests, tensor names, size and SHA-256, training configuration and epoch history), and records "
                 "the trained model's forecast for the parity check in Section 11.\n\n"
@@ -466,48 +494,61 @@ TEMPLATE = {
             "md": (
                 "**What to notice:** epoch 0 labelled as the frozen model, the validation loss per epoch with the 6-hour "
                 "validation skill of `2t`, `msl` and `z500`, 540,672 trainable parameters, 12 training samples, the kept epoch, "
-                "and the adapter (80 tensors, about 2 MB). On the default data the validation loss fell from about 0.18 to about "
-                "0.05 over six epochs in the recorded runs; the notebook does not promise a monotonic fall on other data or "
-                "settings.\n\n"
+                "and the adapter (80 tensors, about 2 MB); on a GPU, one row per configuration, the `selected_system`, whether "
+                "selection bound (best epoch below the budget) and the `grid_hash`. With the previous one-window design, the "
+                "2026-10-03 Colab T4 run of revision a59bed4 showed the validation loss falling from 0.1848 to 0.0518 over six "
+                "epochs, still falling at epoch 6; four validation windows give other numbers (not re-run here), and the "
+                "notebook does not promise a monotonic fall.\n\n"
                 "<details>\n<summary>Check your reasoning (open after answering)</summary>\n\n"
                 "Usually it falls, and the last or a late epoch is kept — but with one training pass of twelve samples per epoch "
                 "it can rise for an epoch, and epoch 0 (the frozen model) can win if adaptation does not help. That is why the "
-                "epoch is chosen on the validation window and never on the test window: choosing it on the test numbers would "
-                "make Section 9 a measure of the choice, not of the model.\n\n"
+                "epoch and the configuration are chosen on validation windows and never on a test window: choosing them on test "
+                "numbers would make Section 9 a measure of the choice, not of the model. That is exactly what happened to the "
+                "October 2021 window, which is why it is now called the exposed development test.\n\n"
                 "</details>"
             ),
         },
         # ------------------------------------------------------------------ 9. evaluate
         {
             "md": (
-                "## 9. Held-out evaluation by lead time · [Evaluation practice]\n\n"
-                "The test window (October 2021 on the default data) was never used for training or epoch selection. The "
-                "`evaluate` stage starts a new process, rebuilds the base model from the verified files, loads the adapter from "
+                "## 9. Exposed development test and the pre-registered fresh test · [Evaluation practice]\n\n"
+                "The October 2021 window is the **exposed development test**: the default recipe was developed and gated on "
+                "it, so it is reported for continuity and is not an independent estimate. The `evaluate` stage starts a new process, rebuilds the base model from the verified files, loads the adapter from "
                 "its files (manifest, scope and digest checked before anything is deserialised), rolls it out from every origin "
                 "and scores it exactly as the frozen model was scored in Section 7. The table puts persistence, frozen and adapted "
                 "side by side per variable and lead, and `outputs/{stem}_evaluation_report.json` records it with the settings and "
                 "the training configuration.\n\n"
-                "The stage then prints the **outcome** as a fact, not an assertion: whether the adapted 6-hour mean skill is below "
-                "the frozen model's, and whether more variables beat persistence. Only on the default sample with the default "
-                "settings, where the recorded runs show the improvement, does the stage treat its absence as a failure. With BYOD, "
-                "other settings or other training choices a negative result is a legitimate finding: the notebook continues, and "
-                "Sections 10–12 still export everything.\n\n"
-                "**Predict before running:** will the adapted model beat the frozen model at every lead? Will it beat persistence "
-                "on most variables?"
+                "It prints the **outcome** on that window as a fact; no test outcome ever stops the notebook.\n\n"
+                "**The fresh test.** The stage then recomputes, from files and the live process, every pre-registered setting: "
+                "sample data, default fields, the complete grid and its selection, the determinism flags, a Tesla T4, the pinned "
+                "fresh pool, and the model state equal to the selected system. Only if all hold — and `DIMER_MASK_FRESH_TEST` is "
+                "not set — does it check every fresh object without downloading, fetch and decode all twelve windows, and score "
+                "frozen and selected system on each. The reading rule (pre-registered): per window Δ = adapted − frozen 6-hour "
+                "mean skill ratio; a 95 % t-interval over the 12 windows; *improved* only if the upper bound is below 0 and the "
+                "mean Δ ≤ −0.02, *worse* if the lower bound is above 0, otherwise *no detectable difference*. The first such "
+                "scoring in a runtime is labelled `pre-registered evaluation (this runtime)` and written to "
+                "`outputs/{stem}_fresh_test_preregistered.json`; a re-run is a `reproduction` with its own numbered file. Which "
+                "run is the evaluation of record is stated in `docs/release-verification.md`. Otherwise the run is exploratory: "
+                "`settings_differing` lists why, and a `_exploratory_<n>` file records it.\n\n"
+                "**Predict before running:** on the exposed development test, will the adapted model beat the frozen model at "
+                "every lead? Do you expect the fresh-test gain to be larger or smaller than on the exposed window, and why?"
             ),
             "code": "run_stage('evaluate')",
         },
         {
             "md": (
-                "**What to notice:** per lead, `frozen_mean_skill` against `adapted_mean_skill` and the counts of variables "
-                "beating persistence; per variable, which ones improved most.\n\n"
-                "**Question tested:** on a window from another year and season, does a 540 k-parameter LoRA fine-tuning on two "
-                "days of data move the foundation model past persistence at this resolution?\n\n"
+                "**What to notice:** per lead, `frozen_mean_skill` against `adapted_mean_skill` on the exposed development test; "
+                "then `preregistered`, `test_look` and `settings_differing`; and, on a pre-registered run, the twelve per-window "
+                "rows, the mean Δ, its interval and the verdict.\n\n"
+                "**Question tested:** does a 540 k-parameter LoRA fine-tuning on two days of data move the foundation model past "
+                "its frozen self at this resolution, on windows nobody chose anything on?\n\n"
                 "<details>\n<summary>Check your reasoning (open after answering)</summary>\n\n"
-                "On the default sample, yes: in the recorded runs the 6-hour mean skill went from about 1.57 to about 0.90, and "
-                "the number of variables beating persistence from 1 to 6, with the mean skill below 1 at every lead to 24 h "
-                "(third-decimal differences between CPU and GPU are normal). That shows the adaptation contract works on this "
-                "grid. It is one two-day window and one seeded run with no dispersion estimate, so it does not show that the "
+                "On the exposed development test, yes: in the 2026-09-19 Kaggle T4 run of revision 4a828fc the 6-hour mean skill "
+                "went from 1.568 to 0.904, and the number of variables beating persistence from 1 to 6. But the recipe was "
+                "developed on that window, so the gain there is optimistic. The fresh test answers the question: twelve windows "
+                "give an interval, and the planning estimate (between-window SD of Δ *assumed* 0.15–0.30) puts the minimum "
+                "detectable effect at 0.13–0.27. Its first hosted result is not yet recorded. Even a clear fresh-test gain is "
+                "two-day windows and one seeded run per configuration, so it does not show that the "
                 "model forecasts at any published accuracy, that the gain holds in other seasons, or that it lasts beyond 24 h. "
                 "If your run did not improve — with BYOD, or other settings — read the persistence column first: a window where "
                 "persistence is already very good leaves little to gain, and a single window plays every role in BYOD, so its "
@@ -519,8 +560,8 @@ TEMPLATE = {
         {
             "md": (
                 "## 10. A forecast from a new origin · [Concept]\n\n"
-                "The `forecast` stage rebuilds the adapted model from its files and forecasts `ROLLOUT_STEPS` × 6 h from a later "
-                "origin of the test window (index 3, or as late as the window allows). Where the window still holds the analysis "
+                "The `forecast` stage rebuilds the selected model from its files and forecasts `ROLLOUT_STEPS` × 6 h from a later "
+                "origin of the exposed development test window (index 3, or as late as the window allows). Where the window still holds the analysis "
                 "at a valid time, the 2 m temperature RMSE against it is printed — a sanity check, not an evaluation. The full "
                 "forecast is exported as `outputs/{stem}_forecast.nc`: every surface variable as (`lead_hours`, `latitude`, "
                 "`longitude`) and every atmospheric variable as (`lead_hours`, `level`, `latitude`, `longitude`), with the "
@@ -579,8 +620,8 @@ TEMPLATE = {
                 "the canonical path produced: with `RUN_ACTIVITY = False` the next cell only prints how to switch it on. When on, "
                 "the `activity` stage builds the frozen model afresh and repeats Section 8 with one change — "
                 "`ACTIVITY_TRAINABLE = 'lora+heads'`, which also trains the encoder token embeddings and decoder heads (about "
-                "713 k more parameters) — with the same epochs, learning rate, seed and data. It scores the test window and "
-                "compares each variable's first-lead skill with the canonical LoRA-only result. It writes only under "
+                "713 k more parameters) — with the selected configuration's epochs and learning rate, the same seed and data. It "
+                "is exploratory: it scores the exposed development test, never the fresh test, and compares each variable's first-lead skill with the canonical LoRA-only result. It writes only under "
                 "`outputs/activity/` and stops if a canonical output changed. It takes about as long as Section 8.\n\n"
                 "**Change one thing:** the adaptation scope. Set `RUN_ACTIVITY = True` and run the cell.\n\n"
                 "**Predict before running:** will unfreezing the heads help everywhere, or help some variables and hurt others? "
@@ -602,9 +643,9 @@ TEMPLATE = {
                 "**Explain:** did the result match your prediction? Which group gained, which lost?\n\n"
                 "**Question tested:** is more trainable capacity always better when adapting on two days of data?\n\n"
                 "<details>\n<summary>Check your reasoning (open after answering)</summary>\n\n"
-                "Not on every run, and the evidence here is thin. In the local CPU pre-flight of this notebook (a Windows "
-                "workstation, not a supported runtime) `lora+heads` improved the 6-hour skill of all ten reported variables, "
-                "with the mean skill going from about 0.90 to about 0.80; an earlier build of this repository, with another "
+                "Not on every run, and the evidence here is thin. In an unrevisioned 2026-09-18 local CPU pre-flight (a Windows "
+                "workstation, not a supported runtime; not re-run here) `lora+heads` improved the 6-hour skill of all ten reported "
+                "variables on the exposed development test, with the mean skill going from about 0.90 to about 0.80; an earlier build of this repository, with another "
                 "training set-up, found it helped the upper air (`z500`) but hurt the surface. The heads map the model's internal "
                 "state to each variable, so 713 k extra parameters trained on twelve samples can fit this test period better — "
                 "or fit some variables' errors at the expense of others. One seeded run on one window cannot tell those apart, "
@@ -634,8 +675,12 @@ TEMPLATE = {
                 "| A stage fails | The cell repeats the stage's error message; the full log is in the run directory under `logs/<stage>.log`. Fix the cause and rerun from that section. |\n"
                 "| \"… is missing: run the stage that writes it\" | A later cell ran before an earlier one, or a Section 5 re-run cleared it. Run from Section 5 to the end. |\n"
                 "| \"the adapter was trained before the data or settings changed\" | Re-run from Section 8. |\n"
-                "| Out of memory | Use the default settings; a CPU runtime needs about 4 GB of RAM for the model and the four windows. |\n"
-                "| Section 9 reports that the adapted model does not beat the frozen model | A legitimate result outside the default configuration: read the persistence column first. On the default configuration the stage stops: that stop is a default-path regression check against the recorded run, not a scientific test (the default recipe was developed on this test window); keep the logs and report it. |\n"
+                "| Out of memory | Use the default settings; a CPU runtime needs about 4 GB of RAM for the model and the seven windows. Any other change makes the run exploratory. |\n"
+                "| `REFUSED: BYOD file refused: …` | One message, no traceback: fix the file as it says (or set `USE_BYOD = False`) and re-run from Section 5. The earlier configuration's results were cleared so none can be read as current. |\n"
+                "| Section 9 reports that the adapted model does not beat the frozen model | A legitimate result, on either test; read the persistence column first. No test outcome stops the notebook. |\n"
+                "| Section 9: `not scored (exploratory)` | A setting differs from the pre-registration (listed in `settings_differing`), or the runtime is not a Tesla T4; the fresh test is never scored in that case. |\n"
+                "| Section 9: the fresh-test fetch fails | Nothing was scored and no look was recorded; retry on a stable connection. |\n"
+                "| `STOP: an operation has no deterministic implementation` | Deterministic training met an op with no deterministic kernel on this device. It is never bypassed with warn-only: keep the log and report the op named. |\n"
                 "| Reload parity fails | Do not use the export. Rerun from Section 8; if it persists, keep the logs and report it. |\n\n"
                 "Nothing is installed into the kernel, so no runtime restart is ever needed."
             ),
@@ -645,18 +690,18 @@ TEMPLATE = {
         "## Interpretation and limits\n\n"
         "Run six times coarser than its training grid, the frozen small checkpoint loses to persistence on most variables at "
         "6 h on the default sample — an honest number for an out-of-distribution use, and the one this notebook exists to move. "
-        "On the default sample, a LoRA fine-tuning of half a million parameters on twelve one-step forecasts brought the mean "
-        "skill below 1 at every lead to 24 h in the recorded runs, with most variables beating persistence, on a window from a "
-        "different year and season than anything trained on; your run reports its own outcome in Section 9, and with other data "
-        "or settings that outcome may be negative. The claim is about the contract: the adaptation moves a foundation weather "
+        "On the exposed development test, a LoRA fine-tuning of half a million parameters on twelve one-step forecasts brought "
+        "the 6-hour mean skill from 1.568 to 0.904 in the 2026-09-19 Kaggle T4 run of revision 4a828fc — but the recipe was "
+        "developed on that window. The independent estimate is the pre-registered 2022 fresh test, whose first hosted result "
+        "is recorded in `docs/release-verification.md` when it exists; your run reports its own outcome in Section 9. The claim is about the contract: the adaptation moves a foundation weather "
         "model onto a grid it was not trained for from two days of data, and the artifact that carries the change is 2 MB.\n\n"
-        "The test window is two days of one month, the scores come from a single seeded run with no dispersion estimate, and "
-        "the small checkpoint is the one upstream publishes for testing. So a skill below 1 here says the contract works, not "
+        "Each window is two days; the fresh test's interval covers window-to-window variation only, from one seeded run per "
+        "configuration, and the small checkpoint is the one upstream publishes for testing. So a skill below 1 here says the contract works, not "
         "that this model forecasts at any published accuracy, that it is stable beyond 24 h, or that the adaptation transfers to "
         "other seasons — none of which this repository exercises. Fine-tuning on a narrow window can also erode the model "
-        "elsewhere; upstream fine-tunes on years of data with roll-out training, which is out of scope here. Overlap between the "
-        "2018–2021 sample and the checkpoint's pretraining data cannot be ruled out (Section 5), so the frozen numbers may "
-        "include dates the model saw at 0.25°. CPU and GPU runs agree to the second or third decimal of a skill ratio, not "
+        "elsewhere; upstream fine-tunes on years of data with roll-out training, which is out of scope here. Training and the April 2020 "
+        "validation window fall inside the large model's documented pretraining period (Section 5), so validation may "
+        "reward memorised states; the fresh test (2022) is outside it. CPU and GPU runs agree to the second or third decimal of a skill ratio, not "
         "bit for bit.\n\n"
         "Three things to carry to real data. **Native resolution:** at 0.25° the published model is far ahead of persistence "
         "without any adaptation; the frozen numbers here are a resolution story, not an Aurora story. **Independence:** "
@@ -667,16 +712,18 @@ TEMPLATE = {
         "standalone notebook, can build a hash-locked environment without touching the kernel, acquire and digest-verify two "
         "pickled upstream assets, audit and convert them into safetensors without executing anything outside the audited "
         "allow-lists, rebuild the model from the installed package, fetch and validate digest-pinned real reanalysis, execute "
-        "bounded fine-tuning, evaluate against persistence and the frozen model on an independent window at every lead, and "
+        "bounded fine-tuning, evaluate against persistence and the frozen model on an exposed development test at every lead "
+        "and, under the pre-registered settings, on a fresh test, and "
         "emit the shown machine-readable artifacts — without the repository being reachable. It does **not** establish "
         "benchmark superiority, production fitness, or forecast skill beyond the checks shown.\n\n"
         "## Conclude with evidence · [Evaluation practice]\n\n"
         "Complete this paragraph with the numbers your run printed:\n\n"
-        "> On the [data source] test window, scored at [number] origins, the frozen model's 6-hour mean skill against "
-        "persistence was [value] with [n]/9 variables beating persistence. After LoRA fine-tuning on [number] one-step samples "
-        "(best epoch [value], chosen on the validation window), the adapted model's 6-hour mean skill was [value] with [n]/9 "
+        "> On the [data source] exposed development test, scored at [number] origins, the frozen model's 6-hour mean skill "
+        "against persistence was [value] with [n]/9 variables beating persistence. After LoRA fine-tuning on [number] one-step "
+        "samples (selected system [C0/C1/C2/frozen], best epoch [value], chosen on four validation windows), the adapted model's 6-hour mean skill was [value] with [n]/9 "
         "variables beating persistence; at 24 h it was [value]. The reloaded adapter reproduced the trained model's forecast "
-        "within [max difference]. With `lora+heads` (optional activity), [n] surface and [n] upper-air variables improved. "
+        "within [max difference]. The fresh test was [scored: mean Δ [value], 95 % interval [low, high], verdict [..] | not "
+        "scored, because [settings_differing]]. With `lora+heads` (optional activity), [n] surface and [n] upper-air variables improved. "
         "These results show [what they do show] and do not show [one thing they cannot show].\n\n"
         "**Transfer:** switch on BYOD (Section 5) with a NetCDF window of your own region's period — at least the length "
         "Section 5 asks for, nothing confidential on a hosted runtime — and compare the persistence column with the default "
@@ -686,14 +733,12 @@ TEMPLATE = {
         "maintainer direction. The maintainer remains responsible for reviewing implementation, validating results and making "
         "release decisions.\n\n"
         "## References\n\n"
-        "- Repository README: https://github.com/kurtvalcorza/aurora-earth-system-pipeline/blob/main/README.md\n"
-        "- Repository model card: https://github.com/kurtvalcorza/aurora-earth-system-pipeline/blob/main/MODEL_CARD.md\n"
-        "- Weights and conversion notes: https://github.com/kurtvalcorza/aurora-earth-system-pipeline/blob/main/docs/WEIGHTS.md\n"
-        "- Hugging Face model repository: https://huggingface.co/{MODEL_ID} (revision `{MODEL_REVISION}`)\n"
-        "- Upstream model descriptions (no training period is given for the small checkpoint): https://microsoft.github.io/aurora/models.html\n"
-        "- Bodnar, C., Bruinsma, W. P., Lucic, A., et al. (2025). A foundation model for the Earth system. Nature 641, 1180–1187: https://doi.org/10.1038/s41586-025-09005-y\n"
-        "- Rasp, S., Hoyer, S., Merose, A., et al. (2024). WeatherBench 2: A benchmark for the next generation of data-driven global weather models. JAMES 16: https://doi.org/10.1029/2023MS004019\n"
-        "- Hersbach, H., et al. (2020). The ERA5 global reanalysis. QJRMS 146, 1999–2049: https://doi.org/10.1002/qj.3803\n"
-        "- DIMER Notebook Specification 2.2 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)"
+        "[1] K. Valcorza, aurora-earth-system-pipeline: README, model card, weights notes and pre-registration, GitHub. [Online]. Available: https://github.com/kurtvalcorza/aurora-earth-system-pipeline (README.md, MODEL_CARD.md, docs/WEIGHTS.md, docs/aurora-preregistration.md)\n\n"
+        "[2] Microsoft, Aurora 0.25° small pretrained, Hugging Face model repository. [Online]. Available: https://huggingface.co/{MODEL_ID} (revision `{MODEL_REVISION}`)\n\n"
+        "[3] Microsoft, Aurora: available models, documentation. [Online]. Available: https://microsoft.github.io/aurora/models.html (no training period is given for the small checkpoint)\n\n"
+        "[4] C. Bodnar, W. P. Bruinsma, A. Lucic, et al., A foundation model for the Earth system, *Nature*, vol. 641, pp. 1180–1187, 2025, doi: 10.1038/s41586-025-09005-y. Data periods: arXiv:2405.13063v2, App. C.\n\n"
+        "[5] S. Rasp, S. Hoyer, A. Merose, et al., WeatherBench 2: A benchmark for the next generation of data-driven global weather models, *J. Adv. Model. Earth Syst.*, vol. 16, 2024, doi: 10.1029/2023MS004019.\n\n"
+        "[6] H. Hersbach et al., The ERA5 global reanalysis, *Q. J. R. Meteorol. Soc.*, vol. 146, pp. 1999–2049, 2020, doi: 10.1002/qj.3803 (ERA5 © ECMWF/Copernicus, licence to use Copernicus products).\n\n"
+        "[7] DIMER, Notebook Specification 2.5 and Model Card Specification 1.1, fleet specs, ml-worker repository."
     ),
 }

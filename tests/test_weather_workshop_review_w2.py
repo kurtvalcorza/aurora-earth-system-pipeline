@@ -52,8 +52,9 @@ def test_m2_fixed_recipe_reused_window_and_non_binding_selection_are_stated():
 
 
 def test_m2_carrier_gate_is_worded_as_a_default_path_regression_check():
+    # Superseded by tutorial review row 2 (R2-M2): the carrier no longer raises on any test outcome at all.
     stages = (REPO / "tools" / "tutorial_stages.py").read_text(encoding="utf-8")
-    assert "default-path regression check against the recorded run failed (not a scientific test)" in stages
+    assert "default-path regression check against the recorded run failed" not in stages
     assert "expected improvement did not occur" not in stages
 
 

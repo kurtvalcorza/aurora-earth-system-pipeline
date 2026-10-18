@@ -1,6 +1,6 @@
 """Static release-asset validation for the Aurora 0.25° small Earth-system DIMER pipeline.
 
-Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.2 §4, isolated hash-locked environment of
+Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.5 §4, isolated hash-locked environment of
 §25.13), the tutorial registry, model card, README, STATUS.md and weight documentation for source conformance and
 cross-document identity consistency, and runs the generator parity checks (PAR1-PAR4).
 
@@ -125,10 +125,12 @@ RUNNER_MARKERS = (
     "if pipe.adapter is not None or lora_b_max_abs(pipe) != 0.0:",
     "persistence = persistence_only(test_window, max_lead_steps=lead)",
     "frozen_test = pipe.evaluate(test_window, max_lead_steps=lead)",
-    'result = pipe.adapt(train_windows, val_window, epochs=training["epochs"], lr=training["learning_rate"], trainable=training["trainable"], progress=_progress)',
-    "artifact = pipe.save_artifact(run.out / ADAPTER_DIR, metadata=",
+    'result = pipe.adapt(train_windows, val_windows, epochs=params["epochs"], lr=params["learning_rate"], trainable=training["trainable"], seed=SEED, patience=params["patience"], progress=_progress)',
+    "pipe.save_artifact(target / ADAPTER_DIR, metadata=",
+    "differing = settings_differing(data, adapt, runtime, artifact_sha256(run))",
+    "record_look(run, look, fresh_report)",
+    "torch.use_deterministic_algorithms(True)",
     "adapted_test = pipe.evaluate(test_window, max_lead_steps=lead)",
-    'if outcome["default_configuration"] and not (',
     "dataset.to_netcdf(nc_path)",
     "np.allclose(field, expected, rtol=PARITY_RTOL, atol=PARITY_ATOL)",
     '"served_from_pickle": False',
@@ -163,8 +165,10 @@ MARKDOWN_MARKERS = (
     "split by period",
     "Copernicus",
     "**6 at the defaults**",
-    "**Pretraining overlap.**",
-    "**cannot be ruled out**",
+    "**Pretraining overlap (DAT9).**",
+    "HRES 0.25° 2016–2020",
+    "exposed development test",
+    "docs/aurora-preregistration.md",
     "Nothing is installed into the notebook kernel",
     "--require-hashes",
     "an estimate",
@@ -187,10 +191,10 @@ UNSUPPORTED_LEARNER_CLAIMS = re.compile(r"six epochs take about four minutes|abo
 # ---------------------------------------------------------------------------
 # Shared checks. Everything below is source/structure validation only. Passing
 # these checks is NOT clean-runtime execution evidence under DIMER Notebook
-# Specification 2.2; see docs/release-verification.md for the release gate.
+# Specification 2.5; see docs/release-verification.md for the release gate.
 # ---------------------------------------------------------------------------
 
-NOTEBOOK_SPEC = "2.2"
+NOTEBOOK_SPEC = "2.5"
 # The supplemental workshop notebook is migrated separately (owner decision on review W2, 2026-10-13).
 WORKSHOP_NOTEBOOK_SPEC = "2.5"
 ALLOWED_PROFILES = {"E2E", "ARTIFACT-INFERENCE", "TASK-INFERENCE", "MULTI-CAPABILITY", "SMOKE"}
@@ -243,7 +247,7 @@ COMMON_MARKDOWN_MARKERS = (
     "without the repository being",
     "It does **not** establish benchmark superiority",
     "## References",
-    f"- Repository model card: https://github.com/kurtvalcorza/{REPO_NAME}/blob/main/MODEL_CARD.md",
+    f"Available: https://github.com/kurtvalcorza/{REPO_NAME} (README.md, MODEL_CARD.md",
 )
 FORBIDDEN_PATTERNS = (
     ("credential in clone URL", re.compile(r"https://[^/'\"\s]*@github\.com/|x-access-token:")),
