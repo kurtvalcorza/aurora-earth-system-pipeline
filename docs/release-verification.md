@@ -138,6 +138,52 @@ runtime, not general estimates.
 | 2026-09-19 | `4a828fc` / `42fb3883` | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-aurora-earth-system` v1; image `torch 2.10.0+cu128` before the pinned install, `torch 2.14.0+cu130` after, Python 3.12.13, `cuda:0`) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 283.5 s | **2 passes — not a one-pass `Run all`** (corrected 2026-10-03, review AUR-M1): pass 1 stopped at the install cell with `RuntimeError: Core dependencies changed while older modules were loaded: cuda-bindings: loaded=12.9.4, installed=13.4.2; numpy: loaded=2.0.2, installed=2.5.3`; the executor restarted the interpreter and pass 2 ran 11/11 code cells ok; 68 files, 1123 MB staged into a clean cache (Hub snapshot + the 57 pinned WeatherBench 2 objects); comparison mean skill vs persistence (RMSE ratio, lower is better) frozen → adapted: 6 h 1.568 → 0.904 (1 → 6 of 9 variables beating persistence), 12 h 1.328 → 0.849 (1 → 8), 18 h 1.237 → 0.867 (1 → 7), 24 h 1.294 → 0.969 (2 → 6); reload parity {max_abs_surf_diff: 0, max_abs_atmos_diff: 0}; run summary and executed notebook archived under `.agent/backups/kaggle-e2e-2026-09-19/out/dimer-nb2-aurora-earth-system/v1/evidence/` in the workspace |
 | 2026-09-18 | `6017ca5` / `b7e27bf3` | Local pre-flight harness (Windows, CPython 3.12.10, CPU float32, `torch 2.14.0+cpu`, `microsoft-aurora 2.0.1`) | Default sample path (stage → verify → **static audits + conversion of both pickles in the notebook** → strict rebuild with LoRA → pinned-data assembly from the cache → validate → refusal probes → 4-step roll-out + determinism → persistence + frozen evaluation at 4 leads → LoRA adapt → evaluate → new-origin forecast → export → reload); the three Hub files and the 57 data objects were pre-staged, so `stage_missing_files` fetched 0 of 3 entries, `verify_snapshot` verified 3, every data object was served from the cache after its digest check, and `convert_model` produced the pinned digests (`fc03b5fc…`, `9bd430b6…`) | 238.3 s | **PASSED** — 11/11 code cells; audits 0 violations; test window (October 2021, 121 × 240): frozen 6 / 12 / 18 / 24 h mean skill 1.569 / 1.328 / 1.238 / 1.295 with 1 / 1 / 1 / 2 of 9 variables beating persistence; LoRA adaptation 540,672 params, 12 samples, 6 epochs, 194.6 s, validation loss 0.185 → 0.052; **adapted 0.897 / 0.839 / 0.858 / 0.957 with 6 / 8 / 8 / 6 of 9**; `2t` 6 h 2.666 → 2.453 → 1.805 K, `msl` 269 → 415 → 229 Pa, `z500` 249 → 411 → 284 m²/s²; adapter 2,173,200 B (80 tensors); reload parity 0.0 / 0.0. Pre-flight; hosted clean-runtime run still required |
 
+## Tutorial review row 2 (2026-10-19): pre-registration, fresh test, score-once
+
+Review: tutorial triage row 2 (findings R2-M1, R2-M2, R2-m1..m9, R2-S1); owner rulings R2-D1 and R2-D2.
+Pre-registration: [`docs/aurora-preregistration.md`](aurora-preregistration.md), committed alone before any code
+(`a577195`) and amended once before any run (`9b32b0c`).
+
+- **The October 2021 window is the exposed development test.** The default recipe (lr 1e-3, 6 epochs, rank-8 LoRA,
+  `LOSS_SCALES`, `trainable='lora'`) was developed and gated on it (see the 2026-09-18 pre-flight row below). Its
+  numbers in the rows below are development numbers, not an independent estimate. The test-outcome gate that stopped
+  the default path is removed; no test outcome stops the notebook.
+- **Fresh test:** 12 two-day 2022 windows, one per month (the chunk containing the 15th), 108 pinned objects,
+  587,041,847 bytes, pool digest `7acb15d01bf0b2472d73c48906a7a9735370b928b29aecf01fbd440b88a46f1b`. The fixer
+  downloaded these bytes once, on 2026-10-19, only to hash them (in memory; never written, decoded or scored).
+- **Development looks at the fresh test: none.** Every fixer check ran with `DIMER_MASK_FRESH_TEST=1`; the fresh
+  windows were never fetched by the stage runner.
+- **`RECORDED_EVALUATION`: none yet.** The evaluation of record is the first hosted Tesla T4 run of the default path
+  under the pre-registered settings, after two masked hosted T4 runs (`DIMER_MASK_FRESH_TEST=1`) that must print the
+  same `grid_hash`. Later identical hosted runs are reproductions. `RECORDED_SELECTION` stays None (a CPU run trains
+  C0) until that record exists.
+- **Determinism:** cuDNN deterministic, benchmark off, `torch.use_deterministic_algorithms(True)` without
+  `warn_only`, `CUBLAS_WORKSPACE_CONFIG=:4096:8`, math attention backend, seed 0. Static scan of `microsoft-aurora`
+  2.0.1: no scatter/index-add/interpolate/grid-sample ops in the model path; attention uses
+  `scaled_dot_product_attention`, whose memory-efficient backend (the one a T4 would pick) has a non-deterministic
+  backward, so it is restricted to the math backend. Whether any other op lacks a deterministic CUDA kernel is
+  confirmed only by the masked hosted runs (a stage would stop with `STOP: an operation has no deterministic
+  implementation` naming it).
+
+**Masked CPU check (2026-10-19, fixer; not clean-runtime evidence, not a development look).** Revision `61bc0f6`
+(carried as blob `904a044e` by `4e9656d`); stage runner run directly on a Windows CPU workstation (not a supported
+runtime) with `DIMER_MASK_FRESH_TEST=1` and `CUDA_VISIBLE_DEVICES=-1`; stages `data`, `frozen`, `adapt`, `evaluate`,
+`reload`, all ok. Determinism flags active on CPU (no op refused). Grid off on CPU, so C0 was trained:
+
+| Item | Value |
+|---|---|
+| Frozen validation metric (6 h mean ratio, 4 windows) | 1.5781 (val-2020-04 1.5732, val-2021-01 1.6187, val-2021-04 1.5400, val-2021-07 1.5805) |
+| C0 validation loss by epoch 0..6 | 0.1744, 0.0946, 0.0732, 0.0606, 0.0549, 0.0505, 0.0482 (best epoch 6 of 6: selection did not bind) |
+| C0 validation metric | 0.9153 (0.9203, 0.9355, 0.8815, 0.9240) |
+| `grid_hash` (CPU, C0 only; not comparable with a GPU grid) | `24781b843a83302eff1bfcbb032307ec85aa142c4868948cc8d902ba914978a2` |
+| Exposed development test, 6 h mean ratio frozen → C0 | 1.569 → 0.902; variables beating persistence 1 → 6 |
+| Fresh test | `not scored (exploratory)`: grid not run, device not a Tesla T4 (both stages); never fetched |
+| Reload parity | PASSED, max abs diff 0.0 |
+| `adapt` stage time | 611.6 s (C0, 6 epochs, four validation windows) |
+
+The new notebook blob `904a044e` has no hosted run yet (REL14 pending): the next steps are the two masked hosted T4
+runs and then the run of record.
+
 ## Current status
 
 **Candidate.** The notebook was regenerated by the isolated-environment generator (/3) to fix review findings
