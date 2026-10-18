@@ -175,7 +175,7 @@ skipped (optional). These are observations on four ERA5 windows at the out-of-di
 |---|---|
 | `aurora_earth_system_colab_a59bed4_colab-cli-t4_output.ipynb` | `4c6cef0003c11f01c7f760981f007560f2268a4b78d46893e532b1e5a008b17e` |
 | `run_summary.json` | `51a74fe60ab5017ee21737afbd431c58c9f838118d8bf9dfccd43a9cc540fd2b` |
-| `exec.log` | `56af24fffb02644cffe515a379f420650ca1087c20c86c1039bea6fe2f4618e8` |
+| `exec.log` | captured `56af24fffb02644cffe515a379f420650ca1087c20c86c1039bea6fe2f4618e8`; committed `2246ac9e43058f1b99efcaad6edd683d1f1cbff1c614988ecb64a13657e09563` after the operator's local run directory was redacted to `<local-run-dir>/` (2 occurrences; 2026-10-19, review row 2 R2-S1; no other byte changed) |
 
 Not exercised by this run: the adaptation-scope activity (`RUN_ACTIVITY = True`), BYOD positive and negative runs
 (step 6), and the equivalent Kaggle run.
