@@ -102,3 +102,14 @@ Per the fleet `SCORE_ONCE_RULE` (items 1-8):
   `docs/release-verification.md`: the first hosted T4 run under these settings, after two masked hosted runs that
   must print the same grid hash. `RECORDED_EVALUATION` stays None until then.
 - Nothing is changed in response to a fresh-test number.
+
+## Amendment 1 (2026-10-19, before any run of any kind)
+
+- Determinism, added to §3: scaled-dot-product attention is restricted to the **math backend** (flash,
+  memory-efficient and cuDNN attention disabled). On a T4, PyTorch would pick the memory-efficient backend, whose
+  backward is not deterministic; the math backend is built from deterministic matmul and softmax kernels. This is
+  a replacement, not a `warn_only` workaround, and it is recorded in the report as `sdpa_backend: "math"`.
+- Window-time check, clarifying §2: the store's time array is chunked in blocks of 23,386 steps, so every window
+  here lies in `time/3` (pinned), not `time/0`.
+- Selection-metric lead, clarifying §4: validation windows are scored at `max_lead_steps 4` (3 origins per window),
+  the same origins as the test windows, and the first lead (6 h) is used.
