@@ -29,6 +29,8 @@ def _load():
 
 
 stages = _load()
+RECORD = stages.RECORDED_EVALUATION  # the hosted T4 evaluation of record, as committed; the harness runs record-less
+EVIDENCE = ROOT / "docs" / "execution-evidence" / "2026-10-19-189492a"
 T4 = {"device": "cuda", "gpu": "Tesla T4", "determinism": dict(stages.DETERMINISM)}
 
 
@@ -88,6 +90,7 @@ def harness(tmp_path, monkeypatch):
     monkeypatch.setattr(stages, "seed_all", lambda seed=0: None)
     monkeypatch.setattr(pkg, "fetch_fresh_test", fetch)
     monkeypatch.delenv(stages.MASK_ENV, raising=False)
+    monkeypatch.setattr(stages, "RECORDED_EVALUATION", None)  # record-less path; the record's own tests set it back
     stub = _StubPipe(default=1.2).evaluate(exposed)
     run.write_output(f"{stages.STEM}_frozen_test.json", {"dataset_digest": "d" * 64, "settings": dict(stages.DEFAULT_SETTINGS), "persistence_baseline": {}, "frozen_test": stub})
     run.write_state("data.json", _data_record())
@@ -411,3 +414,46 @@ def test_frozen_kept_reports_not_applicable_instead_of_a_null():
     fresh = stages.score_fresh(_StubPipe(default=1.2), _StubPipe(default=1.2), windows, 4, "frozen")
     assert fresh["reading_rule"]["verdict"].startswith("not applicable") and fresh["reading_rule"]["ci95_t"] is None
     assert stages.score_fresh(_StubPipe(default=1.2), _StubPipe(default=0.9), windows, 4, "C0")["reading_rule"]["sd_delta"] == 0.0
+
+
+# --- the hosted T4 evaluation of record (2026-10-19, commit 189492a) ---------------------------------------------
+
+
+def test_recorded_evaluation_is_the_hosted_t4_record():
+    transcribed = json.loads((EVIDENCE / "aurora_earth_system_fresh_test_preregistered.transcribed.json").read_text(encoding="utf-8"))
+    summary = json.loads((EVIDENCE / "run_summary.json").read_text(encoding="utf-8"))
+    assert RECORD is not None and stages.RECORDED_SELECTION == RECORD["selected_system"] == transcribed["selected_system"] == "C2"
+    assert RECORD["label"] == transcribed["test_look"] == stages.LOOK_PREREGISTERED
+    assert RECORD["reading_rule"] == transcribed["fresh_test"]["reading_rule"]
+    assert RECORD["grid_hash"] == transcribed["grid_hash"]
+    assert RECORD["commit"] == summary["sha"] == transcribed["commit"] and RECORD["notebook_blob"] == summary["blob"] == transcribed["notebook_blob"]
+    assert summary["gpu"] == "T4" and summary["verdict"] == "PASS" and transcribed["training_runtime"]["fresh_test_masked"] is False
+    assert transcribed["training_runtime"]["determinism"] == stages.DETERMINISM and transcribed["training_runtime"]["gpu"] == stages.PREREGISTERED_GPU
+    assert RECORD["evidence"].rstrip("/") == EVIDENCE.relative_to(ROOT).as_posix()
+    deltas = [row["delta"] for row in transcribed["fresh_test"]["per_window"].values()]
+    ratios = [row["adapted_ratio"] for row in transcribed["fresh_test"]["per_window"].values()]
+    rederived = stages.reading_rule(deltas, ratios)
+    for key in ("n_windows", "mean_delta", "sd_delta", "ci95_t", "verdict", "adapted_ratio_mean", "adapted_ratio_ci95_t", "beats_persistence"):
+        assert rederived[key] == pytest.approx(RECORD["reading_rule"][key], abs=1e-4), key
+
+
+def test_with_the_record_the_first_run_in_a_new_runtime_is_a_reproduction(harness, monkeypatch, capsys):
+    run, calls = harness
+    monkeypatch.setattr(stages, "RECORDED_EVALUATION", RECORD)
+    assert not stages.looks_dir(run).exists()  # a new runtime: no earlier look of any kind
+    stages.stage_evaluate(run)
+    report = _report(run)
+    assert calls["fetch"] == 1 and report["test_look"] == stages.LOOK_REPRODUCTION
+    assert not (run.out / stages.FRESH_MAIN).exists() and report["fresh_test_file"] == f"{stages.STEM}_fresh_test_reproduction_1.json"
+    out = capsys.readouterr().out
+    assert "'reproduction_of': '2026-10-19 hosted T4, commit 189492a'" in out and "'matches_record': False" in out  # stub numbers differ
+
+
+def test_compare_with_record_reports_a_match_and_each_differing_field(monkeypatch):
+    monkeypatch.setattr(stages, "RECORDED_EVALUATION", RECORD)
+    same = stages.compare_with_record("C2", RECORD["grid_hash"], dict(RECORD["reading_rule"]))
+    assert same["matches_record"] is True and same["differs"] == []
+    changed = stages.compare_with_record("C0", RECORD["grid_hash"], {**RECORD["reading_rule"], "mean_delta": -0.80, "ci95_t": (-0.8123, -0.7934)})
+    assert changed["matches_record"] is False and changed["differs"] == ["selected_system", "reading_rule.mean_delta"]
+    monkeypatch.setattr(stages, "RECORDED_EVALUATION", None)
+    assert stages.compare_with_record("C2", RECORD["grid_hash"], RECORD["reading_rule"]) is None

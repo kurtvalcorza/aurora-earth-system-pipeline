@@ -80,9 +80,31 @@ DETERMINISM = {
     "seed": SEED,
 }
 MASK_ENV = "DIMER_MASK_FRESH_TEST"
-# The hosted run of record, once it exists (docs/release-verification.md). Until then a CPU run trains DEFAULT_CONFIG.
-RECORDED_SELECTION: str | None = None
-RECORDED_EVALUATION: dict[str, Any] | None = None
+# The hosted T4 evaluation of record (docs/release-verification.md; docs/execution-evidence/2026-10-19-189492a/). With a
+# record, every pre-registered scoring of the fresh test, the first in a new runtime included, is a reproduction; a CPU
+# run (grid off) trains the recorded selection.
+RECORDED_SELECTION: str | None = "C2"
+RECORDED_EVALUATION: dict[str, Any] | None = {
+    "label": "pre-registered evaluation (this runtime)",
+    "date": "2026-10-19",
+    "runner": "Colab CLI sequential execution, fresh hosted Tesla T4 session",
+    "commit": "189492acd72d768f6cdbe4bff86ee063e877efc6",
+    "notebook_blob": "2b457a4a1a07260dffe3ca8398abe51265f08517",
+    "evidence": "docs/execution-evidence/2026-10-19-189492a/",
+    "selected_system": "C2",
+    "grid_hash": "5961275b233045623843ca00a9a29f2496de279e2a254d33a1c889640481fcdc",
+    "reading_rule": {
+        "n_windows": 12,
+        "mean_delta": -0.8028,
+        "sd_delta": 0.0149,
+        "ci95_t": [-0.8123, -0.7934],
+        "ci95_bootstrap": [-0.8103, -0.7944],
+        "verdict": "improved",
+        "adapted_ratio_mean": 0.7703,
+        "adapted_ratio_ci95_t": [0.7565, 0.7841],
+        "beats_persistence": True,
+    },
+}
 LOOK_PREREGISTERED = "pre-registered evaluation (this runtime)"
 LOOK_REPRODUCTION = "reproduction"
 LOOK_EXPLORATORY = "not scored (exploratory)"
@@ -995,6 +1017,21 @@ def score_fresh(frozen: Any, selected: Any, windows: dict[str, dict[str, Any]], 
     return {"per_window": rows, "reading_rule": rule}
 
 
+def compare_with_record(selected_system: str, grid_hash_value: str, reading_rule_value: dict[str, Any]) -> dict[str, Any] | None:
+    """A reproduction against the evaluation of record: the fields that differ, by name (selection, grid hash, each
+    reading-rule value as printed). None when no record exists."""
+    if RECORDED_EVALUATION is None:
+        return None
+    differs = [k for k, v in (("selected_system", selected_system), ("grid_hash", grid_hash_value)) if RECORDED_EVALUATION.get(k) != v]
+    recorded_rule = RECORDED_EVALUATION.get("reading_rule") or {}
+    differs += [f"reading_rule.{k}" for k in recorded_rule if _jsonable_rule(reading_rule_value.get(k)) != recorded_rule[k]]
+    return {"record": f"{RECORDED_EVALUATION.get('date')} hosted T4, commit {str(RECORDED_EVALUATION.get('commit'))[:7]}", "matches_record": not differs, "differs": differs}
+
+
+def _jsonable_rule(value: Any) -> Any:
+    return list(value) if isinstance(value, tuple) else value
+
+
 def stage_evaluate(run: Run) -> None:
     """Section 9: the selected system on the exposed development test (always) and on the fresh test (only when every
     pre-registered check passes, recomputed here); never raises on any test outcome."""
@@ -1077,6 +1114,9 @@ def stage_evaluate(run: Run) -> None:
     for name, row in fresh["per_window"].items():
         print({name: row})
     print({"fresh_test": look["label"], **fresh["reading_rule"], "record": look["path"].name})
+    comparison = compare_with_record(adapt["selected_system"], adapt["grid"]["grid_hash"], fresh["reading_rule"])
+    if comparison is not None:
+        print({"reproduction_of": comparison["record"], "matches_record": comparison["matches_record"], "differs": comparison["differs"]})
 
 
 def stage_forecast(run: Run) -> None:
