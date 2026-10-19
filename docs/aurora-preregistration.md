@@ -113,3 +113,29 @@ Per the fleet `SCORE_ONCE_RULE` (items 1-8):
   here lies in `time/3` (pinned), not `time/0`.
 - Selection-metric lead, clarifying §4: validation windows are scored at `max_lead_steps 4` (3 origins per window),
   the same origins as the test windows, and the first lead (6 h) is used.
+
+## Amendment 2 (2026-10-19, peer review of PR #17; before any unmasked scoring of the fresh test)
+
+Nothing above is edited. No run has scored the fresh test: the only runs under this pre-registration are a masked
+CPU check and masked hosted checks (`DIMER_MASK_FRESH_TEST=1`), none of which fetched a fresh window. The grid,
+margins, windows, pool, selection metric and verdict thresholds are unchanged.
+
+- **Grid hash (§4), F4.** The printed `grid_hash` now also covers each configuration's exported adapter bytes
+  (the SHA-256 of `adapter.safetensors`) and the unrounded validation metrics, so two runs print the same hash only
+  if they trained bit-identical adapters. The printed-digit rows remain in the hash.
+- **Frozen model kept (§4-§5), F6.** If the selected system is the frozen model, Δ is 0 in every window by
+  construction (the same model is scored twice). The primary endpoint is then reported as "not applicable (frozen
+  model kept on validation; same model)", not as a measured null; only the persistence comparison is read.
+- **Power (§5), F7.** Planning estimate, not a property of the test: the between-window SD of Δ observed on the four
+  validation windows in the masked CPU check of `61bc0f6` (C0, after registration) was about 0.014
+  (Δ = −0.653, −0.683, −0.659, −0.657). If the fresh windows behave alike, the 12-window half-width is about 0.009
+  and the minimum detectable effect about 0.012 (3.08 × SE). The registered assumption of 0.15-0.30 overstated the
+  noise by an order of magnitude; the reading rule is unchanged. Because the frozen model runs on a grid six times
+  coarser than it was trained on, a large Δ is expected; the comparison with persistence ("beats persistence") is
+  reported with equal weight.
+- **DAT9 (§2), F9.** For the large model, documented pretraining ends in 2020, and 2021 lies inside its 0.25° HRES
+  fine-tune, which the pretrained small checkpoint does not use. Upstream gives no period for the small checkpoint,
+  so for it overlap with the 2021 and 2022 windows **cannot be ruled out**; they are probably, not certainly, unseen.
+- **Window dates (§2), F10.** Window keys are labels: `train-2019-01` is 2018-12-31 00:00 to 2019-01-01 18:00,
+  `val-2020-04` is 2020-03-31 to 04-01, and the exposed test `test-2021-10` is 2021-09-30 to 10-01. The new windows
+  contain the 15th as registered.
