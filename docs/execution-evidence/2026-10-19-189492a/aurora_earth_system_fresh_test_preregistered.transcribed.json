@@ -1,0 +1,110 @@
+{
+  "transcription_note": "Transcribed from the printed outputs of aurora_earth_system_colab_189492a_colab-cli-t4_output.ipynb (Section 8 and Section 9 cells) in this directory. The original record file stayed on the released Colab VM and was not retained; fields it holds that the notebook did not print (look_id, the evaluate-stage runtime block) are omitted, not guessed.",
+  "record_file": "aurora_earth_system_fresh_test_preregistered.json",
+  "run_directory": "745485e03beb",
+  "commit": "189492acd72d768f6cdbe4bff86ee063e877efc6",
+  "notebook_blob": "2b457a4a1a07260dffe3ca8398abe51265f08517",
+  "test_look": "pre-registered evaluation (this runtime)",
+  "preregistered": true,
+  "prior_looks_in_this_runtime": 0,
+  "selected_system": "C2",
+  "grid_hash": "5961275b233045623843ca00a9a29f2496de279e2a254d33a1c889640481fcdc",
+  "training_runtime": {
+    "device": "cuda",
+    "gpu": "Tesla T4",
+    "fresh_test_masked": false,
+    "determinism": {
+      "cudnn_deterministic": true,
+      "cudnn_benchmark": false,
+      "use_deterministic_algorithms": true,
+      "warn_only": false,
+      "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+      "sdpa_backend": "math",
+      "seed": 0
+    }
+  },
+  "fresh_test": {
+    "per_window": {
+      "fresh-2022-01": {
+        "frozen_ratio": 1.5786,
+        "adapted_ratio": 0.7613,
+        "delta": -0.8172
+      },
+      "fresh-2022-02": {
+        "frozen_ratio": 1.5159,
+        "adapted_ratio": 0.7471,
+        "delta": -0.7688
+      },
+      "fresh-2022-03": {
+        "frozen_ratio": 1.5724,
+        "adapted_ratio": 0.777,
+        "delta": -0.7954
+      },
+      "fresh-2022-04": {
+        "frozen_ratio": 1.5773,
+        "adapted_ratio": 0.7659,
+        "delta": -0.8114
+      },
+      "fresh-2022-05": {
+        "frozen_ratio": 1.592,
+        "adapted_ratio": 0.7723,
+        "delta": -0.8197
+      },
+      "fresh-2022-06": {
+        "frozen_ratio": 1.6126,
+        "adapted_ratio": 0.8093,
+        "delta": -0.8033
+      },
+      "fresh-2022-07": {
+        "frozen_ratio": 1.6244,
+        "adapted_ratio": 0.8015,
+        "delta": -0.8229
+      },
+      "fresh-2022-08": {
+        "frozen_ratio": 1.5937,
+        "adapted_ratio": 0.7872,
+        "delta": -0.8065
+      },
+      "fresh-2022-09": {
+        "frozen_ratio": 1.5523,
+        "adapted_ratio": 0.7585,
+        "delta": -0.7939
+      },
+      "fresh-2022-10": {
+        "frozen_ratio": 1.5417,
+        "adapted_ratio": 0.7385,
+        "delta": -0.8032
+      },
+      "fresh-2022-11": {
+        "frozen_ratio": 1.5484,
+        "adapted_ratio": 0.7472,
+        "delta": -0.8012
+      },
+      "fresh-2022-12": {
+        "frozen_ratio": 1.5684,
+        "adapted_ratio": 0.778,
+        "delta": -0.7904
+      }
+    },
+    "reading_rule": {
+      "n_windows": 12,
+      "mean_delta": -0.8028,
+      "sd_delta": 0.0149,
+      "ci95_t": [
+        -0.8123,
+        -0.7934
+      ],
+      "ci95_bootstrap": [
+        -0.8103,
+        -0.7944
+      ],
+      "verdict": "improved",
+      "adapted_ratio_mean": 0.7703,
+      "adapted_ratio_ci95_t": [
+        0.7565,
+        0.7841
+      ],
+      "beats_persistence": true
+    }
+  }
+}
