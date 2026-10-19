@@ -88,6 +88,9 @@ LOOK_REPRODUCTION = "reproduction"
 LOOK_EXPLORATORY = "not scored (exploratory)"
 LOOK_MASKED = "not scored (masked: DIMER_MASK_FRESH_TEST=1)"
 FRESH_LEDGER = "fresh_test_ledger.json"
+# The look record lives under --weights (one per runtime), not in the per-run directory: Section 1 makes a new run
+# directory on every Run all, and deleting run directories must never reset a look (peer review F1).
+LOOKS_DIR = "fresh_test_looks"
 FRESH_MAIN = f"{STEM}_fresh_test_preregistered.json"
 T_975 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228, 11: 2.200985, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131, 16: 2.120, 17: 2.110, 18: 2.101, 19: 2.093, 20: 2.086}
 VERSION_CHECKS = ("torch", "microsoft-aurora", "timm", "einops", "xarray", "netcdf4", "numcodecs", "numpy", "safetensors", "huggingface-hub")
@@ -361,7 +364,10 @@ def grid_hash(rows: list[dict[str, Any]], frozen_metric: float, selected: str) -
     """SHA-256 of the printed grid rows (rounded as printed), the frozen metric and the selection: two runs that print
     the same numbers print the same hash."""
     printed = [{k: row[k] for k in ("config", "learning_rate", "epochs_budget", "patience", "epochs_run", "best_epoch", "val_losses", "val_metric")} for row in rows]
-    return hashlib.sha256(json.dumps({"rows": printed, "frozen": round(frozen_metric, 4), "selected": selected}, sort_keys=True).encode("utf-8")).hexdigest()
+    # Amendment 2 (F4): also the exported adapter bytes and the unrounded metrics, so equal hashes mean bit-identical
+    # training, not only agreement to the printed digits.
+    exact = {row["config"]: {"adapter_sha256": row.get("adapter_sha256"), "val_metric": repr(row.get("val_metric_exact"))} for row in rows}
+    return hashlib.sha256(json.dumps({"rows": printed, "exact": exact, "frozen": round(frozen_metric, 4), "frozen_exact": repr(frozen_metric), "selected": selected}, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def reading_rule(deltas: list[float], adapted: list[float]) -> dict[str, Any]:
@@ -387,6 +393,7 @@ def reading_rule(deltas: list[float], adapted: list[float]) -> dict[str, Any]:
     return {
         "n_windows": n,
         "mean_delta": round(mean, 4),
+        "sd_delta": round(float(d.std(ddof=1)), 4),
         "ci95_t": [round(low, 4), round(high, 4)],
         "ci95_bootstrap": [round(float(np.percentile(boot, 2.5)), 4), round(float(np.percentile(boot, 97.5)), 4)],
         "verdict": verdict,
@@ -401,10 +408,14 @@ def reading_rule(deltas: list[float], adapted: list[float]) -> dict[str, Any]:
 # --------------------------------------------------------------------------------------------------
 
 
+def looks_dir(run: Run) -> Path:
+    return run.weights / LOOKS_DIR
+
+
 def read_ledger(run: Run) -> list[dict[str, Any]]:
-    """The fresh-test ledger. A missing, empty or corrupt ledger never crashes a run: a corrupt one is set aside and
-    the look count falls back to the complete report files, which are what make a look."""
-    path = run.state / FRESH_LEDGER
+    """The runtime's fresh-test ledger (under --weights). A missing, empty or corrupt ledger never crashes a run: a
+    corrupt one is set aside and the look count falls back to the complete report files, which are what make a look."""
+    path = looks_dir(run) / FRESH_LEDGER
     if not path.is_file():
         return []
     try:
@@ -418,22 +429,26 @@ def read_ledger(run: Run) -> list[dict[str, Any]]:
     return []
 
 
-def _complete_fresh_reports(run: Run) -> list[Path]:
-    found = []
-    for path in sorted(run.out.glob(f"{STEM}_fresh_test_*.json")):
-        if not (path.name == FRESH_MAIN or path.name.startswith(f"{STEM}_fresh_test_reproduction_")):
+def _complete_fresh_reports(run: Run) -> list[str]:
+    """Distinct completed looks in this runtime: every run directory beside this one (Section 1 makes a new one per Run
+    all) and the copies kept under --weights, de-duplicated by look id."""
+    candidates = [*run.root.parent.glob(f"*/outputs/{STEM}_fresh_test_*.json"), *looks_dir(run).glob(f"*{STEM}_fresh_test_*.json")]
+    found: set[str] = set()
+    for path in candidates:
+        if not (path.name.endswith(FRESH_MAIN) or f"{STEM}_fresh_test_reproduction_" in path.name):
             continue
         try:
-            if json.loads(path.read_text(encoding="utf-8")).get("test_look") in (LOOK_PREREGISTERED, LOOK_REPRODUCTION):
-                found.append(path)
+            record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-    return found
+        if record.get("test_look") in (LOOK_PREREGISTERED, LOOK_REPRODUCTION):
+            found.add(str(record.get("look_id") or path.resolve()))
+    return sorted(found)
 
 
-def _next_free(run: Run, kind: str) -> Path:
-    n = 1
-    while (run.out / f"{STEM}_fresh_test_{kind}_{n}.json").exists():
+def _next_free(run: Run, kind: str, start: int = 1) -> Path:
+    n = max(start, 1)
+    while (run.out / f"{STEM}_fresh_test_{kind}_{n}.json").exists() or (looks_dir(run) / f"{run.root.name}_{STEM}_fresh_test_{kind}_{n}.json").exists():
         n += 1
     return run.out / f"{STEM}_fresh_test_{kind}_{n}.json"
 
@@ -444,15 +459,20 @@ def next_look(run: Run) -> dict[str, Any]:
     prior = max(len(read_ledger(run)), len(_complete_fresh_reports(run)))
     if RECORDED_EVALUATION is None and prior == 0 and not (run.out / FRESH_MAIN).exists():
         return {"label": LOOK_PREREGISTERED, "path": run.out / FRESH_MAIN, "prior_looks": prior}
-    return {"label": LOOK_REPRODUCTION, "path": _next_free(run, "reproduction"), "prior_looks": prior}
+    return {"label": LOOK_REPRODUCTION, "path": _next_free(run, "reproduction", start=prior), "prior_looks": prior}
 
 
 def record_look(run: Run, look: dict[str, Any], report: dict[str, Any]) -> None:
     """A look counts only once its report is written (atomically); the ledger is appended after that, atomically."""
-    atomic_write_text(look["path"], json.dumps(report, indent=2, ensure_ascii=False, default=_jsonable))
+    import uuid
+
+    report = {**report, "look_id": uuid.uuid4().hex, "run_directory": run.root.name}
+    text = json.dumps(report, indent=2, ensure_ascii=False, default=_jsonable)
+    atomic_write_text(look["path"], text)
+    atomic_write_text(looks_dir(run) / f"{run.root.name}_{look['path'].name}", text)  # survives deleting run directories
     entries = read_ledger(run)
-    entries.append({"label": look["label"], "file": look["path"].name, "time_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "grid_hash": report.get("grid_hash"), "selected_system": report.get("selected_system")})
-    atomic_write_text(run.state / FRESH_LEDGER, json.dumps(entries, indent=2))
+    entries.append({"label": look["label"], "look_id": report["look_id"], "run_directory": run.root.name, "file": look["path"].name, "time_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "grid_hash": report.get("grid_hash"), "selected_system": report.get("selected_system")})
+    atomic_write_text(looks_dir(run) / FRESH_LEDGER, json.dumps(entries, indent=2))
 
 
 def settings_differing(data: dict[str, Any], adapt: dict[str, Any], runtime: dict[str, Any], artifact_sha256: str | None) -> list[str]:
@@ -688,8 +708,10 @@ def stage_runtime(run: Run) -> None:
         "gpu": torch.cuda.get_device_name(0) if device == "cuda" else None,
         "float": "float32",
     }
+    record["fresh_test_masked"] = fresh_test_masked()
     run.write_output("runtime.json", record)
     print({k: v for k, v in record.items() if k != "versions"})
+    print({"fresh_test_masked": record["fresh_test_masked"], "switch": f"{MASK_ENV} as passed by run_stage at this call; re-read on every stage"})
     print({"versions": installed})
     print({"ceilings": {k: INPUT_SCHEMA[k] for k in ("grid", "levels", "time_steps", "timestep_hours", "history_steps", "rollout_steps")}})
 
@@ -876,10 +898,11 @@ def stage_adapt(run: Run) -> None:
         mode, configs = "grid", list(GRID)
     elif default_path:
         chosen = RECORDED_SELECTION or DEFAULT_CONFIG
-        mode, configs = f"recorded selection {chosen} (grid off on CPU; exploratory)", [chosen]
+        # F5: a recorded selection of the frozen model trains nothing.
+        mode, configs = f"recorded selection {chosen} (grid off on CPU; exploratory)", ([] if chosen == "frozen" else [chosen])
     else:
         mode, configs = "exploratory: your own configuration (validation and the exposed development test only)", ["custom"]
-    print({"mode": mode, "device": runtime["device"], "gpu": runtime["gpu"], "determinism": runtime["determinism"], "validation_windows": [w["name"] for w in val_windows]})
+    print({"mode": mode, "device": runtime["device"], "gpu": runtime["gpu"], "fresh_test_masked": fresh_test_masked(), "determinism": runtime["determinism"], "validation_windows": [w["name"] for w in val_windows]})
     seed_all()
     frozen = frozen_pipeline(run)
     frozen_val = validation_metric(frozen, val_windows, lead)
@@ -909,16 +932,17 @@ def stage_adapt(run: Run) -> None:
             "val_metric": round(metric["mean"], 4),
             "val_metric_exact": metric["mean"],
             "val_metric_per_window": {k: round(v, 4) for k, v in metric["per_window"].items()},
+            "adapter_sha256": json.loads((target / ADAPTER_DIR / "manifest.json").read_text(encoding="utf-8"))["files"][0]["sha256"],
         }
         rows.append(row)
         results[name] = result
-        print({k: v for k, v in row.items() if k != "val_metric_exact"}, flush=True)
+        print({k: (v[:16] + "..." if k == "adapter_sha256" else v) for k, v in row.items() if k != "val_metric_exact"}, flush=True)
         del pipe
     if mode == "grid":
         selection = select_config({r["config"]: r["val_metric_exact"] for r in rows}, frozen_val["mean"])
         selected = selection["selected"]
     else:
-        selection, selected = None, configs[0]
+        selection, selected = None, (configs[0] if configs else "frozen")
     complete = mode == "grid" and [r["config"] for r in rows] == list(GRID)
     digest = grid_hash(rows, frozen_val["mean"], selected)
     grid = {"ran": mode == "grid", "complete": complete, "table_hash": grid_table_hash(), "rows": rows, "frozen_metric": round(frozen_val["mean"], 4), "frozen_metric_exact": frozen_val["mean"], "selection": selection, "grid_hash": digest}
@@ -956,8 +980,9 @@ def _comparison(frozen_test: dict[str, Any], adapted_test: dict[str, Any]) -> tu
     return comparison, summary
 
 
-def score_fresh(frozen: Any, selected: Any, windows: dict[str, dict[str, Any]], lead: int) -> dict[str, Any]:
-    """Frozen and selected system on every fresh window; per-window first-lead ratios and the reading rule."""
+def score_fresh(frozen: Any, selected: Any, windows: dict[str, dict[str, Any]], lead: int, selected_system: str = "") -> dict[str, Any]:
+    """Frozen and selected system on every fresh window; per-window first-lead ratios and the reading rule. If the
+    frozen model was kept, Δ is 0 by construction (same model): the primary endpoint is not applicable (Amendment 2)."""
     rows = {}
     for name, window in windows.items():
         f = frozen.evaluate(window, max_lead_steps=lead)["summary"]
@@ -965,6 +990,8 @@ def score_fresh(frozen: Any, selected: Any, windows: dict[str, dict[str, Any]], 
         first = next(iter(a))
         rows[name] = {"frozen_ratio": round(float(f[first]["mean_skill"]), 4), "adapted_ratio": round(float(a[first]["mean_skill"]), 4), "delta": round(float(a[first]["mean_skill"]) - float(f[first]["mean_skill"]), 4)}
     rule = reading_rule([r["delta"] for r in rows.values()], [r["adapted_ratio"] for r in rows.values()])
+    if selected_system == "frozen":
+        rule = {**rule, "verdict": "not applicable (frozen model kept on validation; same model)", "mean_delta": None, "ci95_t": None, "ci95_bootstrap": None, "sd_delta": None}
     return {"per_window": rows, "reading_rule": rule}
 
 
@@ -1040,7 +1067,7 @@ def stage_evaluate(run: Run) -> None:
         run.write_output(f"{STEM}_evaluation_report.json", report)
         raise RuntimeError(f"the fresh-test windows could not be fetched or decoded ({exc}); nothing was scored and no look was recorded") from exc
     seed_all()
-    fresh = score_fresh(frozen_pipeline(run), pipe, windows, lead)
+    fresh = score_fresh(frozen_pipeline(run), pipe, windows, lead, adapt["selected_system"])
     fresh_report = {"test_look": look["label"], "preregistered": True, "settings_differing": [], "selected_system": adapt["selected_system"], "grid_hash": adapt["grid"]["grid_hash"], "runtime": runtime, "fresh_test": fresh, "prior_looks_in_this_runtime": look["prior_looks"], "record_note": "which run is THE evaluation of record is stated in docs/release-verification.md"}
     record_look(run, look, fresh_report)  # the look counts from here: report written, then the ledger
     report["test_look"] = look["label"]

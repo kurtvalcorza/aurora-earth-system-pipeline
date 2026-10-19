@@ -382,6 +382,10 @@ def fetch_sample_dataset(*, cache_dir: str | Path | None = None, fetcher: Any = 
 def fetch_fresh_test(*, cache_dir: str | Path | None = None, fetcher: Any = None) -> dict[str, dict[str, Any]]:
     """The 12 fresh-test windows. Call only for a pre-registered scoring: every object is fetched (or read from the
     cache), size/SHA-256 checked and decoded first, so a failure is refused before any window is scored."""
+    import os
+
+    if os.environ.get("DIMER_MASK_FRESH_TEST", "").strip() not in ("", "0"):
+        raise PermissionError("DIMER_MASK_FRESH_TEST is set: the fresh test is masked and is never fetched")
     if fresh_pool_digest() != FRESH_POOL_DIGEST:
         raise ValueError("the fresh-test pins do not match the pre-registered pool digest")
     return {name: fetch_sample_window(name, cache_dir=cache_dir, fetcher=fetcher) for name in FRESH_TEST_WINDOWS}

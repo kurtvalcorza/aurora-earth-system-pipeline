@@ -319,9 +319,15 @@ def run_stage(stage, *options):
     error_file = ROOT / 'state' / (stage + '.error.json')
     error_file.unlink(missing_ok=True)
     command = [str(PYTHON), '-u', str(ROOT / {runner!r}), '--root', str(ROOT), '--weights', str(WEIGHTS), '--stage', stage, *map(str, options)]
+    import os
+
+    # The fresh-test mask is re-read from the kernel's environment on every call and passed explicitly, so %env or
+    # os.environ set in any cell before Section 9 takes effect (ENV itself was copied once, in the install cell).
+    env = dict(ENV)
+    env['DIMER_MASK_FRESH_TEST'] = os.environ.get('DIMER_MASK_FRESH_TEST', '').strip() or '0'
     print('Running stage', repr(stage), 'in the isolated environment; log:', log, flush=True)
     with log.open('w', encoding='utf-8') as output:
-        process = subprocess.Popen(command, env=ENV, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+        process = subprocess.Popen(command, env=env, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
         for line in process.stdout:
             output.write(line)
             output.flush()

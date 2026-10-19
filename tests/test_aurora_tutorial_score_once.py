@@ -114,8 +114,11 @@ def test_grid_is_the_preregistered_three_configs_and_the_hash_tracks_printed_num
     assert stages.GRID == {"C0": {"learning_rate": 1e-3, "epochs": 6, "patience": None}, "C1": {"learning_rate": 3e-4, "epochs": 6, "patience": None}, "C2": {"learning_rate": 1e-3, "epochs": 30, "patience": 3}}
     rows = _grid_rows({"C0": 0.8, "C1": 0.85, "C2": 0.79})
     h = stages.grid_hash(rows, 1.5, "C0")
-    assert h == stages.grid_hash(_grid_rows({"C0": 0.80001, "C1": 0.85, "C2": 0.79}), 1.5, "C0")  # below printed precision
-    assert h != stages.grid_hash(_grid_rows({"C0": 0.8001, "C1": 0.85, "C2": 0.79}), 1.5, "C0")
+    assert h == stages.grid_hash(_grid_rows({"C0": 0.8, "C1": 0.85, "C2": 0.79}), 1.5, "C0")
+    assert h != stages.grid_hash(_grid_rows({"C0": 0.80001, "C1": 0.85, "C2": 0.79}), 1.5, "C0")  # Amendment 2: exact metrics count
+    other = _grid_rows({"C0": 0.8, "C1": 0.85, "C2": 0.79})
+    other[0]["adapter_sha256"] = "f" * 64
+    assert h != stages.grid_hash(other, 1.5, "C0")  # Amendment 2: adapter bytes count
     assert stages.VALIDATION_POOL == ("val-2020-04", "val-2021-01", "val-2021-04", "val-2021-07")
 
 
@@ -156,7 +159,7 @@ def test_preregistered_run_scores_once_then_a_rerun_is_a_reproduction(harness):
     again = _report(run)
     assert again["test_look"] == "reproduction" and again["fresh_test_file"] == f"{stages.STEM}_fresh_test_reproduction_1.json"
     assert json.loads((run.out / stages.FRESH_MAIN).read_text(encoding="utf-8"))["test_look"] == stages.LOOK_PREREGISTERED
-    assert len(json.loads((run.state / stages.FRESH_LEDGER).read_text(encoding="utf-8"))) == 2
+    assert len(json.loads((stages.looks_dir(run) / stages.FRESH_LEDGER).read_text(encoding="utf-8"))) == 2
 
 
 @pytest.mark.parametrize(
@@ -210,7 +213,7 @@ def test_a_failed_fetch_is_not_a_look(harness):
     calls["fail_fetch"] = True
     with pytest.raises(RuntimeError, match="no look was recorded"):
         stages.stage_evaluate(run)
-    assert not (run.out / stages.FRESH_MAIN).exists() and not (run.state / stages.FRESH_LEDGER).exists()
+    assert not (run.out / stages.FRESH_MAIN).exists() and not (stages.looks_dir(run) / stages.FRESH_LEDGER).exists()
     calls["fail_fetch"] = False
     stages.stage_evaluate(run)
     assert _report(run)["test_look"] == stages.LOOK_PREREGISTERED
@@ -228,7 +231,7 @@ def test_an_interrupted_report_write_is_not_a_look(harness, monkeypatch):
     monkeypatch.setattr(stages.os, "replace", interrupted)
     with pytest.raises(KeyboardInterrupt):
         stages.stage_evaluate(run)
-    assert not (run.out / stages.FRESH_MAIN).exists() and not (run.state / stages.FRESH_LEDGER).exists()
+    assert not (run.out / stages.FRESH_MAIN).exists() and not (stages.looks_dir(run) / stages.FRESH_LEDGER).exists()
     assert not list(run.out.glob(".*tmp*"))
     monkeypatch.setattr(stages.os, "replace", real)
     stages.stage_evaluate(run)
@@ -238,10 +241,11 @@ def test_an_interrupted_report_write_is_not_a_look(harness, monkeypatch):
 @pytest.mark.parametrize("ledger_text", ["", "{not json", "[1, 2]"])
 def test_a_corrupt_ledger_neither_crashes_nor_relabels(harness, ledger_text):
     run, _calls = harness
-    (run.state / stages.FRESH_LEDGER).write_text(ledger_text, encoding="utf-8")
+    stages.looks_dir(run).mkdir(parents=True, exist_ok=True)
+    (stages.looks_dir(run) / stages.FRESH_LEDGER).write_text(ledger_text, encoding="utf-8")
     stages.stage_evaluate(run)
     assert _report(run)["test_look"] == stages.LOOK_PREREGISTERED  # no completed report existed: still the first look
-    (run.state / stages.FRESH_LEDGER).write_text("{not json", encoding="utf-8")
+    (stages.looks_dir(run) / stages.FRESH_LEDGER).write_text("{not json", encoding="utf-8")
     stages.stage_evaluate(run)
     assert _report(run)["test_look"] == "reproduction"  # the completed main report still counts
 
@@ -295,3 +299,115 @@ def test_changed_section_5_settings_are_not_preregistered():
     assert any("Section 5" in d for d in stages.settings_differing(data, _adapt_record(), T4, "a" * 64))
     assert stages.settings_differing(_data_record(), _adapt_record(), T4, "a" * 64) == []
     assert any("model state" in d for d in stages.settings_differing(_data_record(), _adapt_record(), T4, "b" * 64))
+
+
+# --- peer review round 2: F1 runtime-scoped looks, F2 mask, F5 frozen recorded selection, F6 frozen kept --------
+
+
+def _second_run(run, name="run2"):
+    return stages.Run(run.root.parent / name, run.weights, run.options)
+
+
+def _seed_second_run(first, second):
+    second.write_output(f"{stages.STEM}_frozen_test.json", json.loads((first.out / f"{stages.STEM}_frozen_test.json").read_text(encoding="utf-8")))
+    second.write_state("data.json", _data_record())
+    second.write_state("adapt.json", _adapt_record())
+
+
+def test_a_rerun_from_the_top_in_the_same_runtime_is_a_reproduction(harness):
+    run, calls = harness
+    stages.stage_evaluate(run)
+    second = _second_run(run)
+    _seed_second_run(run, second)
+    stages.stage_evaluate(second)
+    report = json.loads((second.out / f"{stages.STEM}_evaluation_report.json").read_text(encoding="utf-8"))
+    assert report["test_look"] == "reproduction" and not (second.out / stages.FRESH_MAIN).exists()
+    assert len(json.loads((stages.looks_dir(run) / stages.FRESH_LEDGER).read_text(encoding="utf-8"))) == 2
+
+
+def test_deleting_earlier_run_directories_does_not_reset_the_look(harness):
+    import shutil
+
+    run, _calls = harness
+    stages.stage_evaluate(run)
+    keep = json.loads((run.out / f"{stages.STEM}_frozen_test.json").read_text(encoding="utf-8"))
+    shutil.rmtree(run.root)
+    second = _second_run(run)
+    second.write_output(f"{stages.STEM}_frozen_test.json", keep)
+    second.write_state("data.json", _data_record())
+    second.write_state("adapt.json", _adapt_record())
+    (stages.looks_dir(run) / stages.FRESH_LEDGER).unlink()  # even with the ledger gone, the kept report copy counts
+    stages.stage_evaluate(second)
+    assert json.loads((second.out / f"{stages.STEM}_evaluation_report.json").read_text(encoding="utf-8"))["test_look"] == "reproduction"
+
+
+def test_fetch_fresh_test_refuses_on_its_own_when_masked(monkeypatch):
+    monkeypatch.setenv("DIMER_MASK_FRESH_TEST", "1")
+    with pytest.raises(PermissionError, match="masked"):
+        sm.fetch_fresh_test(fetcher=lambda key: pytest.fail("a masked run fetched " + key))
+
+
+def test_run_stage_forwards_a_mask_set_after_the_install_cell(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("_bn", ROOT / "tools" / "build_notebook.py")
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+    tspec = importlib.util.spec_from_file_location("_nt", ROOT / "tools" / "notebook_template.py")
+    tmod = importlib.util.module_from_spec(tspec)
+    tspec.loader.exec_module(tmod)
+    install = next(c["source"] for c in build.render(ROOT, tmod.TEMPLATE, "test-revision")["cells"] if c["cell_type"] == "code" and c["source"].startswith("# @title Infrastructure: install the locked runtime"))
+    seen = []
+
+    class _Proc:
+        returncode = 0
+        stdout: list = []
+
+        def wait(self):
+            return 0
+
+    class _Sub:
+        PIPE = STDOUT = -1
+
+        @staticmethod
+        def Popen(command, env=None, **kw):
+            seen.append(env.get("DIMER_MASK_FRESH_TEST"))
+            return _Proc()
+
+    (tmp_path / "state").mkdir()
+    ns = {"ROOT": tmp_path, "WEIGHTS": tmp_path / "w", "PYTHON": Path("python"), "ENV": {"A": "1"}, "Path": Path, "json": json, "subprocess": _Sub}
+    exec(install[install.index("def run_stage("):], ns)  # noqa: S102 - the notebook's own helper
+    monkeypatch.delenv("DIMER_MASK_FRESH_TEST", raising=False)
+    ns["run_stage"]("runtime")
+    monkeypatch.setenv("DIMER_MASK_FRESH_TEST", "1")  # set after ENV was built, as %env would
+    ns["run_stage"]("evaluate")
+    assert seen == ["0", "1"]
+    assert "fresh_test_masked" in (ROOT / "tools" / "tutorial_stages.py").read_text(encoding="utf-8").split("def stage_runtime", 1)[1].split("def stage_data", 1)[0]
+
+
+def test_a_recorded_frozen_selection_trains_nothing_on_cpu(tmp_path, monkeypatch):
+    import numpy as np
+
+    run = stages.Run(tmp_path / "run", tmp_path / "weights", argparse.Namespace(byod="", origin=1, rollout_steps=4, max_lead_steps=4, epochs=6, learning_rate=1e-3, trainable="lora"))
+
+    class _Frozen(_StubPipe):
+        def adapt(self, *a, **k):
+            raise AssertionError("a recorded frozen selection must not train")
+
+        def predict(self, window, origin=1, steps=2):
+            return {"forecasts": [{"surf": {"2t": np.zeros(2)}, "atmos": {"t": np.zeros(2)}} for _ in range(steps)]}
+
+    monkeypatch.setattr(stages, "RECORDED_SELECTION", "frozen")
+    monkeypatch.setattr(stages, "load_windows", lambda run, stage: (_data_record(), [], [{"name": "val-2020-04"}], {"name": stages.EXPOSED_TEST}))
+    monkeypatch.setattr(stages, "current_runtime", lambda: {"device": "cpu", "gpu": None, "determinism": dict(stages.DETERMINISM)})
+    monkeypatch.setattr(stages, "frozen_pipeline", lambda run: _Frozen())
+    monkeypatch.setattr(stages, "seed_all", lambda seed=0: None)
+    monkeypatch.setattr(stages, "fresh_test_masked", lambda: True)
+    stages.stage_adapt(run)
+    adapt = run.read_state("adapt.json", "test")
+    assert adapt["selected_system"] == "frozen" and adapt["grid"]["rows"] == [] and adapt["artifact_sha256"] is None
+
+
+def test_frozen_kept_reports_not_applicable_instead_of_a_null():
+    windows = {name: {"name": name} for name in sm.FRESH_TEST_WINDOWS}
+    fresh = stages.score_fresh(_StubPipe(default=1.2), _StubPipe(default=1.2), windows, 4, "frozen")
+    assert fresh["reading_rule"]["verdict"].startswith("not applicable") and fresh["reading_rule"]["ci95_t"] is None
+    assert stages.score_fresh(_StubPipe(default=1.2), _StubPipe(default=0.9), windows, 4, "C0")["reading_rule"]["sd_delta"] == 0.0

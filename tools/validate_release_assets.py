@@ -167,6 +167,9 @@ MARKDOWN_MARKERS = (
     "**6 at the defaults**",
     "**Pretraining overlap (DAT9).**",
     "HRES 0.25° 2016–2020",
+    "**cannot be ruled out**",
+    "fresh_test_masked",
+    "weights/fresh_test_looks/",
     "exposed development test",
     "docs/aurora-preregistration.md",
     "Nothing is installed into the notebook kernel",
@@ -691,6 +694,8 @@ def _validate_notebook_content(path: Path, notebook: dict, code_cells: list[tupl
     _validate_gates(path, code_cells)
     missing_md = [marker for marker in COMMON_MARKDOWN_MARKERS + MARKDOWN_MARKERS if marker not in markdown]
     _check(not missing_md, f"{path.name}: missing learner-facing markers: {missing_md}")
+    stale_md = [t for t in ("one validation window", "| the principal result |", "Held-out evaluation", "196 MB") if t in markdown]
+    _check(not stale_md, f"{path.name}: stale single-window wording (peer review F3): {stale_md}")
     _check("restart" not in markdown.lower().replace("no runtime restart", "").replace("no restart", ""), f"{path.name}: learner prose must not instruct a runtime restart (RUN10)")
     claims = UNSUPPORTED_LEARNER_CLAIMS.findall(markdown)
     _check(not claims, f"{path.name}: learner prose makes claims beyond the evidence (AUR-m3): {claims}")
