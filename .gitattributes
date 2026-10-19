@@ -12,3 +12,6 @@ docs/execution-evidence/2026-10-14/** -text
 
 # Colab CLI T4 evaluation of record for tutorial review row 2 (2026-10-19) and its two masked determinism runs: byte-exact.
 docs/execution-evidence/2026-10-19-189492a/** -text
+
+# Colab CLI T4 reproduction for tutorial review row 2 (2026-10-19): byte-exact.
+docs/execution-evidence/2026-10-19-6ba09d2/** -text

@@ -273,6 +273,26 @@ Under NOTEBOOK_SPEC §5 and RUN10 that is not `Run all` evidence, so the status 
 rows above are corrected accordingly and remain history. Before promotion: the hosted optional journeys of step 6 (the
 activity, BYOD positive and BYOD negative runs), the equivalent Kaggle run, and an explicit promotion decision.
 
+### Hosted T4 reproduction (2026-10-19): commit `6ba09d2`, blob `e19c3b00`
+
+The first run of the record-pinned notebook (`RECORDED_EVALUATION` and `RECORDED_SELECTION = "C2"`, set in `58091a0`) in a fresh Colab runtime. It is the second hosted look at the 12-window fresh test and is labelled `reproduction`, as the score-once rule requires. Evidence: [`execution-evidence/2026-10-19-6ba09d2/`](execution-evidence/2026-10-19-6ba09d2/).
+
+| Field | Value |
+| :--- | :--- |
+| Commit / notebook blob | `6ba09d21471f390a234bab4f193c1039abd37257` / `e19c3b007c473b4a2d091ec55922e4cbe80f696e` (executed sources identical to the blob, 47/47 cells) |
+| Runtime | Colab CLI `colab exec -f`, fresh T4 session (account 2), started 2026-10-19T22:07:26Z, wall 973.3 s, exit 0, input unchanged |
+| Grid | `grid_hash` `5961275b233045623843ca00a9a29f2496de279e2a254d33a1c889640481fcdc` (equal to the record and both masked runs); selected `C2` |
+| Fresh test | label `reproduction`; n = 12; mean delta −0.8028 (sd 0.0149); 95 % t-interval [−0.8123, −0.7934]; bootstrap [−0.8103, −0.7944]; verdict `improved`; adapted/frozen ratio 0.7703 [0.7565, 0.7841]; beats persistence |
+| Record comparison | `matches_record: True`, `differs: []` against the 2026-10-19 hosted T4 record of `189492a` |
+
+| File | SHA-256 |
+| :--- | :--- |
+| `aurora_earth_system_colab_6ba09d2_colab-cli-t4_output.ipynb` | `e63311217f0853694f21b490930f4c1b355d89a15297ee3f86d6860046c0dc5e` |
+| `run_summary.json` | `0239dd36e5bf40a6b03b3cf1f514ed258d12ad95b6f42d6445542a3bca5b6e48` |
+| `exec.log` | captured `a5c044ad6a6b3192f44ca88c4646f8021652e31f7ecb5d5ed8a2a01dc87bfcc6`; committed `f650e88db18a28e7f63606511a6acf4ec701aa1490349b5485798bcc1cd4cdc1` after the operator's local run directory was redacted to `<local-run-dir>/` (2 occurrences; no other byte changed) |
+
+The run's fresh-test record file stayed on the released VM; every field it holds is printed in the committed output notebook.
+
 ### Hosted Colab T4 run of the regenerated notebook (2026-10-03)
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Code cells | Wall time | Outcome |
