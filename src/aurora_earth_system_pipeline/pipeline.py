@@ -38,6 +38,7 @@ import hashlib
 import io
 import json
 import math
+import os
 import pickle
 import pickletools
 import time
@@ -735,12 +736,13 @@ class AuroraPipeline:
     def adapt(
         self,
         train: Sequence[Mapping[str, Any]],
-        val: Mapping[str, Any] | None = None,
+        val: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
         *,
         epochs: int = 6,
         lr: float = 1e-3,
         trainable: str = "lora",
         seed: int = 0,
+        patience: int | None = None,
         progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """Bounded fine-tuning on one-step (6 h) forecasts from every origin of every training window.
@@ -749,7 +751,9 @@ class AuroraPipeline:
         provides in every backbone attention block, zero-initialised so epoch 0 is the pretrained model;
         `"lora+heads"` also unfreezes the encoder token embeddings and decoder heads. Loss = mean over the
         nine variables of MSE / scale², AdamW, fixed learning rate, one origin per step. The epoch with the
-        lowest validation loss is kept; epoch 0 records the frozen model.
+        lowest validation loss is kept (strict `<`: the earliest epoch wins ties); epoch 0 records the frozen model.
+        `val` may be one window or a list; the validation loss is then the mean of the per-window means. With
+        `patience`, training stops after that many consecutive epochs without a strictly lower validation loss.
 
         A pipeline adapts once: a second call would start from the already-trained tensors while epoch 0 still
         claimed the frozen model, so it is refused. Build a fresh pipeline (`from_pretrained(..., use_lora=True)`)
@@ -765,9 +769,17 @@ class AuroraPipeline:
             raise ValueError("lr must be in (0, 0.1]")
         if not train:
             raise ValueError("at least one training window is required")
+        if patience is not None and (not isinstance(patience, int) or patience < 1):
+            raise ValueError("patience must be None or an int >= 1")
         names = self._trainable(trainable)
         train_checked = [_check_window(w) for w in train]
-        val_checked = _check_window(val) if val is not None else None
+        if val is None:
+            val_list: list[dict[str, Any]] = []
+        elif isinstance(val, Mapping):
+            val_list = [_check_window(val)]
+        else:
+            val_list = [_check_window(w) for w in val]
+        val_checked = val_list[0] if val_list else None
         import torch
 
         torch.manual_seed(seed)
@@ -799,12 +811,15 @@ class AuroraPipeline:
             if val_checked is None:
                 return None
             model.eval()
-            losses = []
+            means = []
             with torch.inference_mode():
-                for origin in range(HISTORY_STEPS - 1, val_checked["n_steps"] - 1):
-                    pred = model.forward(self._batch(val_checked, origin).to(self.device))
-                    losses.append(float(loss_of(pred, targets(val_checked, origin))))
-            return sum(losses) / len(losses)
+                for window in val_list:
+                    losses = []
+                    for origin in range(HISTORY_STEPS - 1, window["n_steps"] - 1):
+                        pred = model.forward(self._batch(window, origin).to(self.device))
+                        losses.append(float(loss_of(pred, targets(window, origin))))
+                    means.append(sum(losses) / len(losses))
+            return sum(means) / len(means)
 
         initial_state = {k: v.detach().clone() for k, v in model.state_dict().items() if k in set(names)}
         try:
@@ -825,6 +840,7 @@ class AuroraPipeline:
                 progress(entry)
             samples = [(w, origin) for w in train_checked for origin in range(HISTORY_STEPS - 1, w["n_steps"] - 1)]
             generator = torch.Generator().manual_seed(seed)
+            stale = 0
             for epoch in range(1, epochs + 1):
                 model.train()
                 order = torch.randperm(len(samples), generator=generator).tolist()
@@ -848,6 +864,11 @@ class AuroraPipeline:
                     best_val = entry["val_loss"] if entry["val_loss"] is not None else best_val
                     best_state = {k: v.detach().clone() for k, v in model.state_dict().items() if k in set(names)}
                     best_epoch = epoch
+                    stale = 0
+                else:
+                    stale += 1
+                    if patience is not None and stale >= patience:
+                        break
         except BaseException:
             # Transactional: a failure in training, validation or the progress callback leaves the model as
             # it was before adapt() (LoRA and heads restored), frozen, with no adapter attached.
@@ -877,6 +898,9 @@ class AuroraPipeline:
             "n_train_windows": len(train_checked),
             "n_train_samples": len(samples),
             "seed": seed,
+            "patience": patience,
+            "epochs_run": len(history) - 1,
+            "n_val_windows": len(val_list),
             "history": history,
             "seconds": round(time.perf_counter() - started, 2),
         }
@@ -913,7 +937,9 @@ class AuroraPipeline:
             ],
             "metadata": dict(metadata or {}),
         }
-        (out / ARTIFACT_MANIFEST_NAME).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        tmp = out / f".{ARTIFACT_MANIFEST_NAME}.tmp"
+        tmp.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        os.replace(tmp, out / ARTIFACT_MANIFEST_NAME)  # atomic: a reader never sees a truncated manifest
         return out
 
     @staticmethod

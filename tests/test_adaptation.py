@@ -33,7 +33,8 @@ from conftest import synthetic_window
 
 
 def test_pinned_objects_cover_every_sample_window():
-    assert len(SAMPLE_WINDOWS) == 4 and len(WB2_OBJECTS) == 57
+    # 57 original objects + time/.zarray + time/3 + 15 new windows (3 validation, 12 fresh test) x 9 variables
+    assert len(SAMPLE_WINDOWS) == 4 and len(WB2_OBJECTS) == 57 + 2 + 15 * 9
     for chunk in SAMPLE_WINDOWS.values():
         for var in sm.WB2_SURF.values():
             assert f"{var}/{chunk}.0.0" in WB2_OBJECTS and f"{var}/.zarray" in WB2_OBJECTS
@@ -44,7 +45,9 @@ def test_pinned_objects_cover_every_sample_window():
     for coord in ("latitude", "longitude", "level"):
         assert f"{coord}/0" in WB2_OBJECTS and f"{coord}/.zarray" in WB2_OBJECTS
     assert all(len(d) == 64 and b > 0 for b, d in WB2_OBJECTS.values())
-    assert sum(b for b, _ in WB2_OBJECTS.values()) < 200_000_000
+    fresh = {k for c in sm.FRESH_TEST_WINDOWS.values() for k in sm._object_keys(c)}
+    assert sum(b for k, (b, _) in WB2_OBJECTS.items() if k not in fresh) < 350_000_000
+    assert sum(WB2_OBJECTS[k][0] for k in fresh) == 587_041_847
 
 
 def test_fetch_object_verifies_digest_and_caches(tmp_path, monkeypatch, forbid_model_imports):

@@ -138,6 +138,131 @@ runtime, not general estimates.
 | 2026-09-19 | `4a828fc` / `42fb3883` | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-aurora-earth-system` v1; image `torch 2.10.0+cu128` before the pinned install, `torch 2.14.0+cu130` after, Python 3.12.13, `cuda:0`) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 283.5 s | **2 passes — not a one-pass `Run all`** (corrected 2026-10-03, review AUR-M1): pass 1 stopped at the install cell with `RuntimeError: Core dependencies changed while older modules were loaded: cuda-bindings: loaded=12.9.4, installed=13.4.2; numpy: loaded=2.0.2, installed=2.5.3`; the executor restarted the interpreter and pass 2 ran 11/11 code cells ok; 68 files, 1123 MB staged into a clean cache (Hub snapshot + the 57 pinned WeatherBench 2 objects); comparison mean skill vs persistence (RMSE ratio, lower is better) frozen → adapted: 6 h 1.568 → 0.904 (1 → 6 of 9 variables beating persistence), 12 h 1.328 → 0.849 (1 → 8), 18 h 1.237 → 0.867 (1 → 7), 24 h 1.294 → 0.969 (2 → 6); reload parity {max_abs_surf_diff: 0, max_abs_atmos_diff: 0}; run summary and executed notebook archived under `.agent/backups/kaggle-e2e-2026-09-19/out/dimer-nb2-aurora-earth-system/v1/evidence/` in the workspace |
 | 2026-09-18 | `6017ca5` / `b7e27bf3` | Local pre-flight harness (Windows, CPython 3.12.10, CPU float32, `torch 2.14.0+cpu`, `microsoft-aurora 2.0.1`) | Default sample path (stage → verify → **static audits + conversion of both pickles in the notebook** → strict rebuild with LoRA → pinned-data assembly from the cache → validate → refusal probes → 4-step roll-out + determinism → persistence + frozen evaluation at 4 leads → LoRA adapt → evaluate → new-origin forecast → export → reload); the three Hub files and the 57 data objects were pre-staged, so `stage_missing_files` fetched 0 of 3 entries, `verify_snapshot` verified 3, every data object was served from the cache after its digest check, and `convert_model` produced the pinned digests (`fc03b5fc…`, `9bd430b6…`) | 238.3 s | **PASSED** — 11/11 code cells; audits 0 violations; test window (October 2021, 121 × 240): frozen 6 / 12 / 18 / 24 h mean skill 1.569 / 1.328 / 1.238 / 1.295 with 1 / 1 / 1 / 2 of 9 variables beating persistence; LoRA adaptation 540,672 params, 12 samples, 6 epochs, 194.6 s, validation loss 0.185 → 0.052; **adapted 0.897 / 0.839 / 0.858 / 0.957 with 6 / 8 / 8 / 6 of 9**; `2t` 6 h 2.666 → 2.453 → 1.805 K, `msl` 269 → 415 → 229 Pa, `z500` 249 → 411 → 284 m²/s²; adapter 2,173,200 B (80 tensors); reload parity 0.0 / 0.0. Pre-flight; hosted clean-runtime run still required |
 
+## Tutorial review row 2 (2026-10-19): pre-registration, fresh test, score-once
+
+Review: tutorial triage row 2 (findings R2-M1, R2-M2, R2-m1..m9, R2-S1); owner rulings R2-D1 and R2-D2.
+Pre-registration: [`docs/aurora-preregistration.md`](aurora-preregistration.md), committed alone before any code
+(`a577195`) and amended once before any run (`9b32b0c`).
+
+- **The October 2021 window is the exposed development test.** The default recipe (lr 1e-3, 6 epochs, rank-8 LoRA,
+  `LOSS_SCALES`, `trainable='lora'`) was developed and gated on it (see the 2026-09-18 pre-flight row below). Its
+  numbers in the rows below are development numbers, not an independent estimate. The test-outcome gate that stopped
+  the default path is removed; no test outcome stops the notebook.
+- **Fresh test:** 12 two-day 2022 windows, one per month (the chunk containing the 15th), 108 pinned objects,
+  587,041,847 bytes, pool digest `7acb15d01bf0b2472d73c48906a7a9735370b928b29aecf01fbd440b88a46f1b`. The fixer
+  downloaded these bytes once, on 2026-10-19, only to hash them (in memory; never written, decoded or scored).
+- **Development looks at the fresh test: none.** Every fixer check ran with `DIMER_MASK_FRESH_TEST=1`; the fresh
+  windows were never fetched by the stage runner.
+- **`RECORDED_EVALUATION`: none yet.** The evaluation of record is the first hosted Tesla T4 run of the default path
+  under the pre-registered settings, after two masked hosted T4 runs (`DIMER_MASK_FRESH_TEST=1`) that must print the
+  same `grid_hash`. Later identical hosted runs are reproductions. `RECORDED_SELECTION` stays None (a CPU run trains
+  C0) until that record exists.
+- **Determinism:** cuDNN deterministic, benchmark off, `torch.use_deterministic_algorithms(True)` without
+  `warn_only`, `CUBLAS_WORKSPACE_CONFIG=:4096:8`, math attention backend, seed 0. Static scan of `microsoft-aurora`
+  2.0.1: no scatter/index-add/interpolate/grid-sample ops in the model path; attention uses
+  `scaled_dot_product_attention`, whose memory-efficient backend (the one a T4 would pick) has a non-deterministic
+  backward, so it is restricted to the math backend. Whether any other op lacks a deterministic CUDA kernel is
+  confirmed only by the masked hosted runs (a stage would stop with `STOP: an operation has no deterministic
+  implementation` naming it).
+
+**Masked CPU check (2026-10-19, fixer; not clean-runtime evidence, not a development look).** Revision `61bc0f6`
+(carried as blob `904a044e` by `4e9656d`); stage runner run directly on a Windows CPU workstation (not a supported
+runtime) with `DIMER_MASK_FRESH_TEST=1` and `CUDA_VISIBLE_DEVICES=-1`; stages `data`, `frozen`, `adapt`, `evaluate`,
+`reload`, all ok. Determinism flags active on CPU (no op refused). Grid off on CPU, so C0 was trained:
+
+| Item | Value |
+|---|---|
+| Frozen validation metric (6 h mean ratio, 4 windows) | 1.5781 (val-2020-04 1.5732, val-2021-01 1.6187, val-2021-04 1.5400, val-2021-07 1.5805) |
+| C0 validation loss by epoch 0..6 | 0.1744, 0.0946, 0.0732, 0.0606, 0.0549, 0.0505, 0.0482 (best epoch 6 of 6: selection did not bind) |
+| C0 validation metric | 0.9153 (0.9203, 0.9355, 0.8815, 0.9240) |
+| `grid_hash` (CPU, C0 only; not comparable with a GPU grid) | `24781b843a83302eff1bfcbb032307ec85aa142c4868948cc8d902ba914978a2` |
+| Exposed development test, 6 h mean ratio frozen → C0 | 1.569 → 0.902; variables beating persistence 1 → 6 |
+| Fresh test | `not scored (exploratory)`: grid not run, device not a Tesla T4 (both stages); never fetched |
+| Reload parity | PASSED, max abs diff 0.0 |
+| `adapt` stage time | 611.6 s (C0, 6 epochs, four validation windows) |
+
+The new notebook blob `904a044e` has no hosted run yet (REL14 pending): the next steps are the two masked hosted T4
+runs and then the run of record.
+
+### Peer review of PR #17 (2026-10-19): round 2
+
+- Pre-registration **Amendment 2** (`6dc42a3`, appended alone; nothing above it edited; no fresh window had been
+  fetched by any run): `grid_hash` now also covers each configuration's adapter bytes and the unrounded metrics, so
+  equal hashes in the two masked hosted runs mean bit-identical training, not only 4-digit agreement; frozen-kept
+  is reported as "not applicable (same model)"; DAT9 keeps "cannot be ruled out" for the small checkpoint; window
+  dates are stated.
+- **Observed calibration (after registration, planning only):** in the masked CPU check of `61bc0f6` (C0) the
+  validation-window Δ were −0.653, −0.683, −0.659, −0.657, SD about 0.014, an order of magnitude below the registered
+  assumption of 0.15–0.30. If the fresh windows behave alike the 12-window half-width is about 0.009. The reading
+  rule is unchanged; Section 9 now gives the persistence comparison equal weight. The CPU `grid_hash` recorded above
+  was computed before Amendment 2 and is not comparable with any later hash.
+- **Look record per runtime (F1):** the fresh-test ledger and a copy of every completed fresh-test report are kept in
+  `weights/fresh_test_looks/`, and every run directory of the runtime is scanned, so a second Run all, or deleting
+  earlier `outputs/` run directories, is labelled `reproduction`, never a second `pre-registered evaluation`.
+- **Mask (F2):** `run_stage` re-reads `DIMER_MASK_FRESH_TEST` from the kernel's environment on every call and passes it
+  explicitly (`%env` in any cell before Section 9 works); Section 4 prints `fresh_test_masked` before anything could
+  fetch; `fetch_fresh_test` itself refuses when masked.
+- **History (F11):** the operator path redacted in `e73d250` remains in the history of `exec.log` before that commit;
+  the captured SHA-256 above names that historical version, not the file at the current head.
+- Current notebook blob `2b457a4a` (regenerated by `3a42d95` from `d183be9`): no hosted run yet.
+
+### Hosted T4 evaluation of record (2026-10-19): commit `189492a`, blob `2b457a4a`
+
+This is the evaluation of record named by the pre-registration: the first hosted Tesla T4 run of the default path under
+the pre-registered settings, after the two masked hosted runs below printed the same `grid_hash`. It is the first
+scoring of the 12-window fresh test by any run. Evidence: [`execution-evidence/2026-10-19-189492a/`](execution-evidence/2026-10-19-189492a/).
+
+| Item | Value |
+|---|---|
+| Commit / notebook blob | `189492acd72d768f6cdbe4bff86ee063e877efc6` / `2b457a4a1a07260dffe3ca8398abe51265f08517` (executed code-cell and markdown sources identical to the blob, 47/47 cells) |
+| Executor | Colab CLI sequential execution (`colab exec -f`), fresh VM, Tesla T4 15,360 MiB; kernel Python 3.13.15; isolated CPython 3.12.12, `torch 2.14.0+cu130`, 69 locked packages; not a browser `Run all` |
+| Start (UTC) / wall | 2026-10-19 21:33:10 / 987.0 s; 14/14 code cells, 0 errors; carrier stamp `d183be9` |
+| Mask | `fresh_test_masked: False` |
+| Determinism | cuDNN deterministic, benchmark off, `use_deterministic_algorithms` on with `warn_only` False, `CUBLAS_WORKSPACE_CONFIG=:4096:8`, math SDPA backend, seed 0; no op refused |
+| Frozen validation metric (6 h mean ratio, 4 windows) | 1.5784 |
+| Grid (validation metric) | C0 0.9156 (best epoch 6/6); C1 1.0359 (6/6); C2 0.7822 (best epoch 30/30, patience 3 did not stop it) |
+| Selected system | **C2** (beats C0 by 0.1334 ≥ 0.02; beats frozen by 0.7962 ≥ 0.02) |
+| `grid_hash` | `5961275b233045623843ca00a9a29f2496de279e2a254d33a1c889640481fcdc` |
+| Exposed development test (6 h mean ratio, frozen → C2) | 1.568 → 0.769; variables beating persistence 1 → 8 of 9 |
+| Fresh test label | `pre-registered evaluation (this runtime)`; 12 windows; preflight downloaded 0 fresh chunks before the look |
+| Fresh test Δ (adapted − frozen, 6 h mean ratio) | mean −0.8028, SD 0.0149, 95% CI (t) [−0.8123, −0.7934], 95% CI (bootstrap) [−0.8103, −0.7944] |
+| Verdict | **improved**; adapted ratio mean 0.7703, 95% CI (t) [0.7565, 0.7841], beats persistence: True |
+| Reload parity | PASSED, max abs diff 0.0 / 0.0 |
+
+The record file `aurora_earth_system_fresh_test_preregistered.json` stayed on the released VM. The committed
+`aurora_earth_system_fresh_test_preregistered.transcribed.json` holds every field the notebook printed (12 per-window
+rows, the reading rule, selection, `grid_hash`, determinism flags) and says so; `look_id` and the evaluate-stage
+runtime block were not printed and are omitted.
+
+| File | SHA-256 |
+|---|---|
+| `aurora_earth_system_colab_189492a_colab-cli-t4_output.ipynb` | `797cb77598937b3206c5ba24dd82288668e7fc93c3737bc13410f3d151421df1` (equals `executed_sha256` in `run_summary.json`) |
+| `run_summary.json` | `72f4bd34e6911d76b4eaaf2297460c08be7d5d1518d89816710bdc0b1da982ec` |
+| `exec.log` | captured `cee96924eb811760d3cb46314c25e498fee348a416a212ab044549066939259b`; committed `6cefe8bb9650d5a96eca0d1fd5cd567fa6fd37e2f6b7b9f1382a44672f768b75` after the operator's local run directory was redacted to `<local-run-dir>/` (2 occurrences; no other byte changed) |
+
+**Masked determinism check (two hosted T4 runs, 2026-10-19).** Throwaway branch commit `e3f242b` (never merged),
+notebook blob `a64434c3cec4993ecf5df686e7ba982751396977` = blob `2b457a4a` plus one 13-line first code cell that sets
+`DIMER_MASK_FRESH_TEST=1`. Both runs labelled the fresh test `not scored (masked: DIMER_MASK_FRESH_TEST=1)` and never
+fetched it. Both printed `grid_hash` `5961275b…` and selected C2, the same as the run of record; the 45 epoch lines, the
+grid rows and the selection are identical across all three runs. The two masked output notebooks differ only in run
+directory ids and timings.
+
+| Run | Colab account | Start (UTC) | Wall | Cells | `run_summary.json` SHA-256 | `exec.log` SHA-256 (captured → committed) | Output notebook SHA-256 (not committed) |
+|---|---|---|---:|---|---|---|---|
+| [`masked-e3f242b-run1`](execution-evidence/2026-10-19-189492a/masked-e3f242b-run1/) | 1 | 16:18:52 | 865.7 s | 15/15, PASS | `84ca356cedef28c0dbedab853a799ce1cceab885c4fbce5385fc3a2eece3d15b` | `09965af7c13225d543b495e90906a05a3e75818b42358e3943029f1c6eed2da0` → `6379c0df4a9fa0125693284ab4deb9d5306237e3b5256a7cfc899680f055acfb` | `91aaaa12ee8e7d63f95ec2d7de626533e1326e7527724acea3b1550ee6cb8169` |
+| [`masked-e3f242b-run2`](execution-evidence/2026-10-19-189492a/masked-e3f242b-run2/) | 2 | 16:32:36 | 981.1 s | 15/15, PASS | `400cd55c86a9c7b934ce6ea59b271dab3a7f2203da79ea128b87d10d393ceb1f` | `25110dcd30536c972d2232eb0569a6aeade58120dd7eb1619a73b019a9f308ba` → `21f84a38c702a223dc4be801833b34cf2e96638d46d214468d41fb9b2b8e89f3` | `1abf2110ba55879be34176eb68a17d8018bfbc50f18c0ecef1f738582d91fcc6` |
+
+Both committed `exec.log` files had the local run directory redacted to `<local-run-dir>/` (2 occurrences each; no
+other byte changed).
+
+**Record set (2026-10-20).** `58091a0` sets `RECORDED_EVALUATION` to this record and `RECORDED_SELECTION` to C2, and
+`da07576` regenerates the notebook from it (stamp `58091a0`), giving blob
+`e19c3b007c473b4a2d091ec55922e4cbe80f696e`. With a record, every pre-registered scoring of the fresh test, the first in
+a new runtime included, is labelled `reproduction`, is written to `_reproduction_<n>`, and prints whether it matches the
+record and which fields differ. A CPU run (grid off) now trains C2, up to 30 epochs. The notebook prose and README quote
+the numbers above and name this run. The pre-registration is unchanged. Blob `e19c3b00` has no hosted run yet: a hosted
+T4 reproduction is required before merge.
+
 ## Current status
 
 **Candidate.** The notebook was regenerated by the isolated-environment generator (/3) to fix review findings
@@ -147,6 +272,26 @@ the 2026-09-19 Kaggle T4 run of blob `42fb3883`, which completed only after a re
 Under NOTEBOOK_SPEC §5 and RUN10 that is not `Run all` evidence, so the status should not have been promoted on it; the
 rows above are corrected accordingly and remain history. Before promotion: the hosted optional journeys of step 6 (the
 activity, BYOD positive and BYOD negative runs), the equivalent Kaggle run, and an explicit promotion decision.
+
+### Hosted T4 reproduction (2026-10-19): commit `6ba09d2`, blob `e19c3b00`
+
+The first run of the record-pinned notebook (`RECORDED_EVALUATION` and `RECORDED_SELECTION = "C2"`, set in `58091a0`) in a fresh Colab runtime. It is the second hosted look at the 12-window fresh test and is labelled `reproduction`, as the score-once rule requires. Evidence: [`execution-evidence/2026-10-19-6ba09d2/`](execution-evidence/2026-10-19-6ba09d2/).
+
+| Field | Value |
+| :--- | :--- |
+| Commit / notebook blob | `6ba09d21471f390a234bab4f193c1039abd37257` / `e19c3b007c473b4a2d091ec55922e4cbe80f696e` (executed sources identical to the blob, 47/47 cells) |
+| Runtime | Colab CLI `colab exec -f`, fresh T4 session (account 2), started 2026-10-19T22:07:26Z, wall 973.3 s, exit 0, input unchanged |
+| Grid | `grid_hash` `5961275b233045623843ca00a9a29f2496de279e2a254d33a1c889640481fcdc` (equal to the record and both masked runs); selected `C2` |
+| Fresh test | label `reproduction`; n = 12; mean delta −0.8028 (sd 0.0149); 95 % t-interval [−0.8123, −0.7934]; bootstrap [−0.8103, −0.7944]; verdict `improved`; adapted/frozen ratio 0.7703 [0.7565, 0.7841]; beats persistence |
+| Record comparison | `matches_record: True`, `differs: []` against the 2026-10-19 hosted T4 record of `189492a` |
+
+| File | SHA-256 |
+| :--- | :--- |
+| `aurora_earth_system_colab_6ba09d2_colab-cli-t4_output.ipynb` | `e63311217f0853694f21b490930f4c1b355d89a15297ee3f86d6860046c0dc5e` |
+| `run_summary.json` | `0239dd36e5bf40a6b03b3cf1f514ed258d12ad95b6f42d6445542a3bca5b6e48` |
+| `exec.log` | captured `a5c044ad6a6b3192f44ca88c4646f8021652e31f7ecb5d5ed8a2a01dc87bfcc6`; committed `f650e88db18a28e7f63606511a6acf4ec701aa1490349b5485798bcc1cd4cdc1` after the operator's local run directory was redacted to `<local-run-dir>/` (2 occurrences; no other byte changed) |
+
+The run's fresh-test record file stayed on the released VM; every field it holds is printed in the committed output notebook.
 
 ### Hosted Colab T4 run of the regenerated notebook (2026-10-03)
 
@@ -175,7 +320,7 @@ skipped (optional). These are observations on four ERA5 windows at the out-of-di
 |---|---|
 | `aurora_earth_system_colab_a59bed4_colab-cli-t4_output.ipynb` | `4c6cef0003c11f01c7f760981f007560f2268a4b78d46893e532b1e5a008b17e` |
 | `run_summary.json` | `51a74fe60ab5017ee21737afbd431c58c9f838118d8bf9dfccd43a9cc540fd2b` |
-| `exec.log` | `56af24fffb02644cffe515a379f420650ca1087c20c86c1039bea6fe2f4618e8` |
+| `exec.log` | captured `56af24fffb02644cffe515a379f420650ca1087c20c86c1039bea6fe2f4618e8`; committed `2246ac9e43058f1b99efcaad6edd683d1f1cbff1c614988ecb64a13657e09563` after the operator's local run directory was redacted to `<local-run-dir>/` (2 occurrences; 2026-10-19, review row 2 R2-S1; no other byte changed) |
 
 Not exercised by this run: the adaptation-scope activity (`RUN_ACTIVITY = True`), BYOD positive and negative runs
 (step 6), and the equivalent Kaggle run.

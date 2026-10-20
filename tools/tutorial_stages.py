@@ -1,4 +1,4 @@
-"""Stage runner for the standalone Aurora Earth-system tutorial (NOTEBOOK_SPEC 2.2 §25.13 isolated-environment pattern).
+"""Stage runner for the standalone Aurora Earth-system tutorial (NOTEBOOK_SPEC 2.5 §25.13 isolated-environment pattern).
 
 The tutorial notebook carries this file verbatim (as ``tutorial_stages.py`` in its run directory, beside the carried
 package under ``src/``) and runs every stage with the interpreter of an isolated, hash-locked environment::
@@ -15,7 +15,14 @@ Learner-facing exports go to ``RUN_DIR/outputs``; hand-off state goes to ``RUN_D
 
 Stages: weights → runtime → data → rollout → frozen → adapt → evaluate → forecast → reload → bundle, plus the optional
 ``activity``. The package API does the work; this runner only sequences it and adds the tutorial's own checks (the
-workflow-length check of a window against the configured settings, the default-path expectation, the activity).
+workflow-length check of a window against the configured settings, the validation grid, the score-once rules for
+the fresh test, the activity).
+
+Pre-registration: docs/aurora-preregistration.md. The October 2021 window is the *exposed development test* (the
+default recipe was developed and gated on it). The 12-window 2022 fresh test is scored only under every
+pre-registered setting (sample data, default settings and form fields, the complete GPU grid and its selection,
+determinism flags, a Tesla T4, the pinned fresh pool) and never when ``DIMER_MASK_FRESH_TEST=1``; anything else is
+exploratory and writes ``*_exploratory_<n>.json``.
 """
 # ruff: noqa: E501  -- the printed dictionaries are the learner-facing output; they are kept on one line each
 from __future__ import annotations
@@ -23,7 +30,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
+import random
 import re
 import shutil
 import sys
@@ -44,6 +53,68 @@ REPORTED = ("2t", "10u", "10v", "msl", "t", "u", "v", "q", "z", "z500")
 SHOWN = ("2t", "10u", "msl", "t", "z500")
 DEFAULT_SETTINGS = {"origin": 1, "rollout_steps": 4, "max_lead_steps": 4}
 DEFAULT_TRAINING = {"epochs": 6, "learning_rate": 1e-3, "trainable": "lora"}
+# ---- pre-registered settings (docs/aurora-preregistration.md) -------------------------------------------------
+SEED = 0
+TRAIN_WINDOWS = ("train-2019-01", "train-2019-07")
+VALIDATION_POOL = ("val-2020-04", "val-2021-01", "val-2021-04", "val-2021-07")
+EXPOSED_TEST = "test-2021-10"
+GRID: dict[str, dict[str, Any]] = {
+    "C0": {"learning_rate": 1e-3, "epochs": 6, "patience": None},
+    "C1": {"learning_rate": 3e-4, "epochs": 6, "patience": None},
+    "C2": {"learning_rate": 1e-3, "epochs": 30, "patience": 3},
+}
+DEFAULT_CONFIG = "C0"
+# Margins are a tolerance, not a significance threshold: keep the default (C0) and keep the frozen model unless beaten.
+SELECTION_MARGIN = 0.02
+KEEP_FROZEN_MARGIN = 0.02
+VERDICT_MIN_EFFECT = 0.02
+BOOTSTRAP_RESAMPLES = 10_000
+PREREGISTERED_GPU = "Tesla T4"
+DETERMINISM = {
+    "cudnn_deterministic": True,
+    "cudnn_benchmark": False,
+    "use_deterministic_algorithms": True,
+    "warn_only": False,
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "sdpa_backend": "math",
+    "seed": SEED,
+}
+MASK_ENV = "DIMER_MASK_FRESH_TEST"
+# The hosted T4 evaluation of record (docs/release-verification.md; docs/execution-evidence/2026-10-19-189492a/). With a
+# record, every pre-registered scoring of the fresh test, the first in a new runtime included, is a reproduction; a CPU
+# run (grid off) trains the recorded selection.
+RECORDED_SELECTION: str | None = "C2"
+RECORDED_EVALUATION: dict[str, Any] | None = {
+    "label": "pre-registered evaluation (this runtime)",
+    "date": "2026-10-19",
+    "runner": "Colab CLI sequential execution, fresh hosted Tesla T4 session",
+    "commit": "189492acd72d768f6cdbe4bff86ee063e877efc6",
+    "notebook_blob": "2b457a4a1a07260dffe3ca8398abe51265f08517",
+    "evidence": "docs/execution-evidence/2026-10-19-189492a/",
+    "selected_system": "C2",
+    "grid_hash": "5961275b233045623843ca00a9a29f2496de279e2a254d33a1c889640481fcdc",
+    "reading_rule": {
+        "n_windows": 12,
+        "mean_delta": -0.8028,
+        "sd_delta": 0.0149,
+        "ci95_t": [-0.8123, -0.7934],
+        "ci95_bootstrap": [-0.8103, -0.7944],
+        "verdict": "improved",
+        "adapted_ratio_mean": 0.7703,
+        "adapted_ratio_ci95_t": [0.7565, 0.7841],
+        "beats_persistence": True,
+    },
+}
+LOOK_PREREGISTERED = "pre-registered evaluation (this runtime)"
+LOOK_REPRODUCTION = "reproduction"
+LOOK_EXPLORATORY = "not scored (exploratory)"
+LOOK_MASKED = "not scored (masked: DIMER_MASK_FRESH_TEST=1)"
+FRESH_LEDGER = "fresh_test_ledger.json"
+# The look record lives under --weights (one per runtime), not in the per-run directory: Section 1 makes a new run
+# directory on every Run all, and deleting run directories must never reset a look (peer review F1).
+LOOKS_DIR = "fresh_test_looks"
+FRESH_MAIN = f"{STEM}_fresh_test_preregistered.json"
+T_975 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228, 11: 2.200985, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131, 16: 2.120, 17: 2.110, 18: 2.101, 19: 2.093, 20: 2.086}
 VERSION_CHECKS = ("torch", "microsoft-aurora", "timm", "einops", "xarray", "netcdf4", "numcodecs", "numpy", "safetensors", "huggingface-hub")
 # Files each stage writes. A stage first removes its own files and those of every stage that reads them
 # (DEPENDANTS), so no record from an earlier configuration can be read as a result of the current one.
@@ -51,7 +122,7 @@ STAGE_FILES: dict[str, tuple[str, ...]] = {
     "data": ("data.json", f"{STEM}_input_manifest.json", f"{STEM}_sample_window.nc"),
     "rollout": (f"{STEM}_frozen_rollout.json",),
     "frozen": (f"{STEM}_frozen_test.json",),
-    "adapt": ("adapt.json", "reference_forecast.npz", f"{STEM}_training_history.json", ADAPTER_DIR),
+    "adapt": ("adapt.json", "reference_forecast.npz", f"{STEM}_training_history.json", ADAPTER_DIR, "grid"),
     "evaluate": (f"{STEM}_evaluation_report.json",),
     "forecast": (f"{STEM}_forecast.json", f"{STEM}_forecast.nc"),
     "reload": (f"{STEM}_reload_parity.json",),
@@ -96,9 +167,7 @@ class Run:
         return self.weights / DATA_CACHE
 
     def write_state(self, name: str, value: Any) -> Path:
-        path = self.state / name
-        path.write_text(json.dumps(value, indent=2), encoding="utf-8")
-        return path
+        return atomic_write_text(self.state / name, json.dumps(value, indent=2))
 
     def read_state(self, name: str, needed_by: str) -> Any:
         path = self.state / name
@@ -107,9 +176,7 @@ class Run:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def write_output(self, name: str, value: Any) -> Path:
-        path = self.out / name
-        path.write_text(json.dumps(value, indent=2, ensure_ascii=False, default=_jsonable), encoding="utf-8")
-        return path
+        return atomic_write_text(self.out / name, json.dumps(value, indent=2, ensure_ascii=False, default=_jsonable))
 
     def read_output(self, name: str, needed_by: str) -> Any:
         path = self.out / name
@@ -131,6 +198,23 @@ class Run:
                         path.unlink()
                         removed.append(name)
         return removed
+
+
+class Refusal(ValueError):
+    """A refused learner input (DAT20): the notebook prints the message without a traceback and stops the cell."""
+
+
+def atomic_write_text(path: Path, text: str) -> Path:
+    """Write ``text`` to a temporary file beside ``path`` and rename it into place: a reader sees the old file or the
+    whole new one, never a truncated one (R2-m4)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return path
 
 
 def _jsonable(value: Any) -> Any:
@@ -210,8 +294,265 @@ def trim_window(window: dict[str, Any], steps: int) -> dict[str, Any]:
 
 
 def is_default(data: dict[str, Any], training: dict[str, Any]) -> bool:
-    """The default configuration, on which the notebook's stated expectations were measured."""
+    """Sample data, default settings and default form fields: the path on which the grid and the fresh test run."""
     return data["source"] == "sample" and data["settings"] == DEFAULT_SETTINGS and training == DEFAULT_TRAINING
+
+
+# --------------------------------------------------------------------------------------------------
+# determinism (pre-registered; docs/aurora-preregistration.md §3)
+# --------------------------------------------------------------------------------------------------
+
+
+def seed_all(seed: int = SEED) -> None:
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def apply_determinism() -> None:
+    """Set every pre-registered determinism flag. ``CUBLAS_WORKSPACE_CONFIG`` is set before torch is imported, so before
+    CUDA initialises. Scaled-dot-product attention is restricted to the math backend: the memory-efficient backend
+    (the one a T4 would pick) has a non-deterministic backward. No ``warn_only``: an op with no deterministic kernel
+    raises, and ``main`` stops the stage naming it."""
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = DETERMINISM["CUBLAS_WORKSPACE_CONFIG"]
+    import torch
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True)
+    for name in ("enable_flash_sdp", "enable_mem_efficient_sdp", "enable_cudnn_sdp"):
+        if hasattr(torch.backends.cuda, name):
+            getattr(torch.backends.cuda, name)(False)
+    torch.backends.cuda.enable_math_sdp(True)
+    seed_all()
+
+
+def determinism_state() -> dict[str, Any]:
+    """The flags actually in effect in this process (recomputed, never taken from an earlier record)."""
+    import torch
+
+    others = [getattr(torch.backends.cuda, n)() for n in ("flash_sdp_enabled", "mem_efficient_sdp_enabled", "cudnn_sdp_enabled") if hasattr(torch.backends.cuda, n)]
+    return {
+        "cudnn_deterministic": bool(torch.backends.cudnn.deterministic),
+        "cudnn_benchmark": bool(torch.backends.cudnn.benchmark),
+        "use_deterministic_algorithms": bool(torch.are_deterministic_algorithms_enabled()),
+        "warn_only": bool(torch.is_deterministic_algorithms_warn_only_enabled()),
+        "CUBLAS_WORKSPACE_CONFIG": os.environ.get("CUBLAS_WORKSPACE_CONFIG"),
+        "sdpa_backend": "math" if torch.backends.cuda.math_sdp_enabled() and not any(others) else "other",
+        "seed": SEED,
+    }
+
+
+def current_runtime() -> dict[str, Any]:
+    """Device, GPU name and determinism flags of this process."""
+    import torch
+
+    device = device_name()
+    return {"device": device, "gpu": torch.cuda.get_device_name(0) if device == "cuda" else None, "determinism": determinism_state()}
+
+
+def fresh_test_masked() -> bool:
+    return os.environ.get(MASK_ENV, "").strip() not in ("", "0")
+
+
+# --------------------------------------------------------------------------------------------------
+# grid selection and the reading rule (pure functions; docs/aurora-preregistration.md §4-5)
+# --------------------------------------------------------------------------------------------------
+
+
+def grid_table_hash() -> str:
+    return hashlib.sha256(json.dumps({"grid": GRID, "default": DEFAULT_CONFIG, "margins": [SELECTION_MARGIN, KEEP_FROZEN_MARGIN], "validation": VALIDATION_POOL, "train": TRAIN_WINDOWS, "seed": SEED}, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def select_config(metrics: dict[str, float], frozen_metric: float) -> dict[str, Any]:
+    """Keep C0 unless a challenger is lower by >= SELECTION_MARGIN (lowest wins; exact tie -> lower index); then keep
+    the frozen model unless the chosen config is lower than it by >= KEEP_FROZEN_MARGIN. Values are compared at 6 dp."""
+    order = list(GRID)
+    m = {k: round(float(v), 6) for k, v in metrics.items()}
+    base = m[DEFAULT_CONFIG]
+    challengers = [c for c in order if c != DEFAULT_CONFIG and c in m and m[c] <= round(base - SELECTION_MARGIN, 6)]
+    config = min(challengers, key=lambda c: (m[c], order.index(c))) if challengers else DEFAULT_CONFIG
+    frozen = round(float(frozen_metric), 6)
+    beats_frozen = m[config] <= round(frozen - KEEP_FROZEN_MARGIN, 6)
+    return {"config": config, "selected": config if beats_frozen else "frozen", "beats_frozen_by_margin": beats_frozen, "metrics": m, "frozen_metric": frozen}
+
+
+def grid_hash(rows: list[dict[str, Any]], frozen_metric: float, selected: str) -> str:
+    """SHA-256 of the printed grid rows (rounded as printed), the frozen metric and the selection: two runs that print
+    the same numbers print the same hash."""
+    printed = [{k: row[k] for k in ("config", "learning_rate", "epochs_budget", "patience", "epochs_run", "best_epoch", "val_losses", "val_metric")} for row in rows]
+    # Amendment 2 (F4): also the exported adapter bytes and the unrounded metrics, so equal hashes mean bit-identical
+    # training, not only agreement to the printed digits.
+    exact = {row["config"]: {"adapter_sha256": row.get("adapter_sha256"), "val_metric": repr(row.get("val_metric_exact"))} for row in rows}
+    return hashlib.sha256(json.dumps({"rows": printed, "exact": exact, "frozen": round(frozen_metric, 4), "frozen_exact": repr(frozen_metric), "selected": selected}, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def reading_rule(deltas: list[float], adapted: list[float]) -> dict[str, Any]:
+    """Primary endpoint: mean window-level delta (adapted - frozen 6 h nine-variable mean RMSE ratio), 95 % t-interval
+    over windows; window bootstrap (seed 0) alongside; verdict per the pre-registration."""
+    import numpy as np
+
+    d = np.asarray(deltas, dtype=float)
+    a = np.asarray(adapted, dtype=float)
+    n = len(d)
+    t = T_975[n - 1]
+    mean, se = float(d.mean()), float(d.std(ddof=1) / np.sqrt(n))
+    low, high = mean - t * se, mean + t * se
+    rng = np.random.default_rng(SEED)
+    boot = d[rng.integers(0, n, size=(BOOTSTRAP_RESAMPLES, n))].mean(axis=1)
+    a_mean, a_se = float(a.mean()), float(a.std(ddof=1) / np.sqrt(n))
+    if high < 0 and mean <= -VERDICT_MIN_EFFECT:
+        verdict = "improved"
+    elif low > 0:
+        verdict = "worse"
+    else:
+        verdict = "no detectable difference"
+    return {
+        "n_windows": n,
+        "mean_delta": round(mean, 4),
+        "sd_delta": round(float(d.std(ddof=1)), 4),
+        "ci95_t": [round(low, 4), round(high, 4)],
+        "ci95_bootstrap": [round(float(np.percentile(boot, 2.5)), 4), round(float(np.percentile(boot, 97.5)), 4)],
+        "verdict": verdict,
+        "adapted_ratio_mean": round(a_mean, 4),
+        "adapted_ratio_ci95_t": [round(a_mean - t * a_se, 4), round(a_mean + t * a_se, 4)],
+        "beats_persistence": bool(a_mean + t * a_se < 1),
+    }
+
+
+# --------------------------------------------------------------------------------------------------
+# score-once state: ledger, look labels, run-numbered files (fail-closed; SCORE_ONCE_RULE)
+# --------------------------------------------------------------------------------------------------
+
+
+def looks_dir(run: Run) -> Path:
+    return run.weights / LOOKS_DIR
+
+
+def read_ledger(run: Run) -> list[dict[str, Any]]:
+    """The runtime's fresh-test ledger (under --weights). A missing, empty or corrupt ledger never crashes a run: a
+    corrupt one is set aside and the look count falls back to the complete report files, which are what make a look."""
+    path = looks_dir(run) / FRESH_LEDGER
+    if not path.is_file():
+        return []
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(entries, list) and all(isinstance(e, dict) and "label" in e for e in entries):
+            return entries
+    except (OSError, ValueError):
+        pass
+    path.replace(path.with_name(f"{FRESH_LEDGER}.corrupt-{int(time.time())}"))
+    print({"fresh_test_ledger": "unreadable; set aside, looks counted from the complete report files"})
+    return []
+
+
+def _complete_fresh_reports(run: Run) -> list[str]:
+    """Distinct completed looks in this runtime: every run directory beside this one (Section 1 makes a new one per Run
+    all) and the copies kept under --weights, de-duplicated by look id."""
+    candidates = [*run.root.parent.glob(f"*/outputs/{STEM}_fresh_test_*.json"), *looks_dir(run).glob(f"*{STEM}_fresh_test_*.json")]
+    found: set[str] = set()
+    for path in candidates:
+        if not (path.name.endswith(FRESH_MAIN) or f"{STEM}_fresh_test_reproduction_" in path.name):
+            continue
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if record.get("test_look") in (LOOK_PREREGISTERED, LOOK_REPRODUCTION):
+            found.add(str(record.get("look_id") or path.resolve()))
+    return sorted(found)
+
+
+def _next_free(run: Run, kind: str, start: int = 1) -> Path:
+    n = max(start, 1)
+    while (run.out / f"{STEM}_fresh_test_{kind}_{n}.json").exists() or (looks_dir(run) / f"{run.root.name}_{STEM}_fresh_test_{kind}_{n}.json").exists():
+        n += 1
+    return run.out / f"{STEM}_fresh_test_{kind}_{n}.json"
+
+
+def next_look(run: Run) -> dict[str, Any]:
+    """Label and file of the next completed pre-registered scoring. The main file only for the first look in a runtime
+    when no record exists; otherwise a run-numbered reproduction file. Never overwrites an existing file."""
+    prior = max(len(read_ledger(run)), len(_complete_fresh_reports(run)))
+    if RECORDED_EVALUATION is None and prior == 0 and not (run.out / FRESH_MAIN).exists():
+        return {"label": LOOK_PREREGISTERED, "path": run.out / FRESH_MAIN, "prior_looks": prior}
+    return {"label": LOOK_REPRODUCTION, "path": _next_free(run, "reproduction", start=prior), "prior_looks": prior}
+
+
+def record_look(run: Run, look: dict[str, Any], report: dict[str, Any]) -> None:
+    """A look counts only once its report is written (atomically); the ledger is appended after that, atomically."""
+    import uuid
+
+    report = {**report, "look_id": uuid.uuid4().hex, "run_directory": run.root.name}
+    text = json.dumps(report, indent=2, ensure_ascii=False, default=_jsonable)
+    atomic_write_text(look["path"], text)
+    atomic_write_text(looks_dir(run) / f"{run.root.name}_{look['path'].name}", text)  # survives deleting run directories
+    entries = read_ledger(run)
+    entries.append({"label": look["label"], "look_id": report["look_id"], "run_directory": run.root.name, "file": look["path"].name, "time_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "grid_hash": report.get("grid_hash"), "selected_system": report.get("selected_system")})
+    atomic_write_text(looks_dir(run) / FRESH_LEDGER, json.dumps(entries, indent=2))
+
+
+def settings_differing(data: dict[str, Any], adapt: dict[str, Any], runtime: dict[str, Any], artifact_sha256: str | None) -> list[str]:
+    """Every pre-registered setting this run does not hold, recomputed from files and the live process (Section 9 never
+    trusts a flag an earlier stage left behind). Empty = pre-registered."""
+    from aurora_earth_system_pipeline import FRESH_POOL_DIGEST, fresh_pool_digest
+
+    differing = []
+    if data.get("source") != "sample":
+        differing.append("data source (BYOD)")
+    if data.get("settings") != DEFAULT_SETTINGS:
+        differing.append("Section 5 settings (ORIGIN / ROLLOUT_STEPS / MAX_LEAD_STEPS)")
+    if data.get("roles", {}).get("train") != list(TRAIN_WINDOWS) or data.get("roles", {}).get("validation") != list(VALIDATION_POOL):
+        differing.append("window roles")
+    if adapt.get("training") != DEFAULT_TRAINING:
+        differing.append("Section 8 form fields (EPOCHS / LEARNING_RATE / TRAINABLE)")
+    if adapt.get("seed") != SEED:
+        differing.append("seed")
+    grid = adapt.get("grid") or {}
+    if not grid.get("ran"):
+        differing.append("grid not run (CPU or changed settings)")
+    elif not grid.get("complete") or [r.get("config") for r in grid.get("rows", [])] != list(GRID):
+        differing.append("grid incomplete")
+    elif grid.get("table_hash") != grid_table_hash():
+        differing.append("grid table differs from the pre-registration")
+    else:
+        recomputed = select_config({r["config"]: r["val_metric_exact"] for r in grid["rows"]}, grid["frozen_metric_exact"])
+        if recomputed["selected"] != adapt.get("selected_system"):
+            differing.append("selected system differs from the pre-registered rule")
+    for record, label in ((runtime, "this stage"), (adapt.get("runtime") or {}, "training")):
+        if record.get("device") != "cuda" or PREREGISTERED_GPU not in str(record.get("gpu") or ""):
+            differing.append(f"device in {label} (not a {PREREGISTERED_GPU})")
+        if record.get("determinism") != DETERMINISM:
+            differing.append(f"determinism flags in {label}")
+    if fresh_pool_digest() != FRESH_POOL_DIGEST:
+        differing.append("fresh-pool pins")
+    if adapt.get("selected_system") != "frozen" and (artifact_sha256 is None or artifact_sha256 != adapt.get("artifact_sha256")):
+        differing.append("model state differs from the selected system")
+    return differing
+
+
+def fresh_preflight(run: Run) -> dict[str, Any]:
+    """Without downloading any fresh-test chunk: every fresh object is pinned, every variable's `.zarray` resolves and
+    parses as the Blosc layout the decoder handles, and every window's dates match the pinned time coordinate."""
+    from aurora_earth_system_pipeline import FRESH_TEST_WINDOWS, WB2_OBJECTS, check_window_times, fetch_object
+    from aurora_earth_system_pipeline.samples import WB2_ATMOS, WB2_SURF, _object_keys
+
+    for array in [*WB2_SURF.values(), *WB2_ATMOS.values()]:
+        meta = json.loads(fetch_object(f"{array}/.zarray", cache_dir=run.data_cache))
+        if meta.get("compressor", {}).get("id") != "blosc" or meta.get("filters") or meta.get("order") != "C" or meta.get("dtype") != "<f4":
+            raise ValueError(f"{array}/.zarray: unexpected Zarr layout {meta.get('compressor')}, {meta.get('dtype')}")
+    dates = {}
+    for name, chunk in FRESH_TEST_WINDOWS.items():
+        missing = [k for k in _object_keys(chunk) if k not in WB2_OBJECTS]
+        if missing:
+            raise ValueError(f"{name}: unpinned objects {missing}")
+        dates[name] = check_window_times(chunk, cache_dir=run.data_cache)[0].strftime("%Y-%m-%dT%H:%M")
+    return {"windows": len(dates), "objects": 9 * len(dates), "first_times": dates, "downloaded_fresh_chunks": 0}
 
 
 # --------------------------------------------------------------------------------------------------
@@ -219,17 +560,18 @@ def is_default(data: dict[str, Any], training: dict[str, Any]) -> bool:
 # --------------------------------------------------------------------------------------------------
 
 
-def load_windows(run: Run, stage: str) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
-    """The settings record and the role windows the ``data`` stage chose, rebuilt from the cache or the BYOD file."""
+def load_windows(run: Run, stage: str) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """The settings record and the role windows the ``data`` stage chose (train, validation list, exposed development
+    test), rebuilt from the cache or the BYOD file. Never the fresh test."""
     from aurora_earth_system_pipeline import fetch_sample_dataset, load_byod_dataset
 
     data = run.read_state("data.json", stage)
     if data["source"] == "byod":
         window = load_byod_dataset(data["byod_path"])[0]
-        return data, [window], window, window
+        return data, [window], [window], window
     windows = fetch_sample_dataset(cache_dir=run.data_cache)
     roles = data["roles"]
-    return data, [windows[name] for name in roles["train"]], windows[roles["validation"]], windows[roles["test"]]
+    return data, [windows[name] for name in roles["train"]], [windows[name] for name in roles["validation"]], windows[roles["test"]]
 
 
 def frozen_pipeline(run: Run) -> Any:
@@ -250,8 +592,22 @@ def adapted_pipeline(run: Run, stage: str) -> tuple[Any, dict[str, Any]]:
     data = run.read_state("data.json", stage)
     if adapt["dataset_digest"] != data["digest"] or adapt["settings"] != data["settings"]:
         raise RuntimeError("the adapter was trained before the data or settings changed; re-run from Section 8")
+    if adapt.get("selected_system") == "frozen":
+        return frozen_pipeline(run), adapt
+    if artifact_sha256(run) != adapt.get("artifact_sha256"):
+        raise RuntimeError("the exported adapter is not the one Section 8 selected; re-run from Section 8")
     pipe = AuroraPipeline.from_artifact(run.out / ADAPTER_DIR, weights_dir=run.snapshot, device=device_name())
     return pipe, adapt
+
+
+def artifact_sha256(run: Run) -> str | None:
+    """SHA-256 of the exported adapter's tensor file, from its manifest after re-hashing the file, or None."""
+    path = run.out / ADAPTER_DIR / "manifest.json"
+    if not path.is_file():
+        return None
+    entry = json.loads(path.read_text(encoding="utf-8"))["files"][0]
+    tensor = run.out / ADAPTER_DIR / entry["path"]
+    return entry["sha256"] if tensor.is_file() and sha256_file(tensor) == entry["sha256"] else None
 
 
 def lora_b_max_abs(pipe: Any) -> float:
@@ -374,8 +730,10 @@ def stage_runtime(run: Run) -> None:
         "gpu": torch.cuda.get_device_name(0) if device == "cuda" else None,
         "float": "float32",
     }
+    record["fresh_test_masked"] = fresh_test_masked()
     run.write_output("runtime.json", record)
     print({k: v for k, v in record.items() if k != "versions"})
+    print({"fresh_test_masked": record["fresh_test_masked"], "switch": f"{MASK_ENV} as passed by run_stage at this call; re-read on every stage"})
     print({"versions": installed})
     print({"ceilings": {k: INPUT_SCHEMA[k] for k in ("grid", "levels", "time_steps", "timestep_hours", "history_steps", "rollout_steps")}})
 
@@ -384,6 +742,7 @@ def stage_data(run: Run) -> None:
     """Section 5: windows (pinned sample or BYOD), validation against the schema AND the configured workflow, roles,
     a sample NetCDF that completes the workflow at these settings, refusal probes."""
     from aurora_earth_system_pipeline import (
+        FRESH_TEST_WINDOWS,
         HISTORY_STEPS,
         INPUT_SCHEMA,
         MAX_ROLLOUT_STEPS,
@@ -396,32 +755,41 @@ def stage_data(run: Run) -> None:
     )
 
     byod_path = None
-    if run.options.byod:
-        # Copy the file into the run's state first: the learner may point BYOD_PATH at the sample file this stage
-        # rewrites below, and every later stage re-reads the window from the accepted copy.
-        original = Path(run.options.byod).resolve()
-        if not original.is_file():
-            raise FileNotFoundError(f"BYOD file not found: {original}")
-        byod_path = run.state / "byod_incoming" / original.name
-        byod_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(original, byod_path)
     settings = {"origin": run.options.origin, "rollout_steps": run.options.rollout_steps, "max_lead_steps": run.options.max_lead_steps}
-    if byod_path is not None:
-        test_window = load_byod_dataset(byod_path)[0]
-        train_windows, val_window = [test_window], test_window
-        source, data_source = "byod", f"BYOD ({byod_path.name}) -- one window plays every role, so the held-out numbers are NOT independent"
-        dataset_manifest = validate_dataset([test_window])
-        roles = {"train": [test_window["name"]], "validation": test_window["name"], "test": test_window["name"]}
-    else:
-        windows = fetch_sample_dataset(cache_dir=run.data_cache)
-        train_windows = [windows["train-2019-01"], windows["train-2019-07"]]
-        val_window, test_window = windows["val-2020-04"], windows["test-2021-10"]
-        source, data_source = "sample", SAMPLE_LABEL_SOURCE
-        dataset_manifest = validate_dataset([*train_windows, val_window, test_window])
-        roles = {"train": [w["name"] for w in train_windows], "validation": val_window["name"], "test": test_window["name"]}
-    checked_test = validate_inputs(test_window)
-    workflow = check_workflow(checked_test["n_steps"], settings, max_rollout=MAX_ROLLOUT_STEPS, history_steps=HISTORY_STEPS, label="test window")
-    # Accepted: only now are the earlier configuration's results cleared, so a refused input leaves them intact.
+    try:
+        if run.options.byod:
+            # Copy the file into the run's state first: the learner may point BYOD_PATH at the sample file this stage
+            # rewrites below, and every later stage re-reads the window from the accepted copy.
+            original = Path(run.options.byod).resolve()
+            if not original.is_file():
+                raise FileNotFoundError(f"BYOD file not found: {original.name}. Set BYOD_PATH to a NetCDF file on this machine, or leave it empty to upload one in Google Colab")
+            byod_path = run.state / "byod_incoming" / original.name
+            byod_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(original, byod_path)
+            # DAT20: once the file is copied (it may be the sample file this stage wrote), the run is invalidated before
+            # anything is validated, so a refusal can never leave the earlier configuration's results to be read as current.
+            run.invalidate("data")
+            test_window = load_byod_dataset(byod_path)[0]
+            train_windows, val_windows = [test_window], [test_window]
+            source, data_source = "byod", f"BYOD ({byod_path.name}) -- one window plays every role, so the held-out numbers are NOT independent; the fresh test is never scored"
+            dataset_manifest = validate_dataset([test_window])
+            roles = {"train": [test_window["name"]], "validation": [test_window["name"]], "test": test_window["name"], "fresh_test": []}
+        else:
+            windows = fetch_sample_dataset(cache_dir=run.data_cache)
+            train_windows = [windows[name] for name in TRAIN_WINDOWS]
+            val_windows, test_window = [windows[name] for name in VALIDATION_POOL], windows[EXPOSED_TEST]
+            source, data_source = "sample", SAMPLE_LABEL_SOURCE
+            dataset_manifest = validate_dataset([*train_windows, *val_windows, test_window])
+            roles = {"train": list(TRAIN_WINDOWS), "validation": list(VALIDATION_POOL), "test": EXPOSED_TEST, "test_role": "exposed development test", "fresh_test": list(FRESH_TEST_WINDOWS)}
+        checked_test = validate_inputs(test_window)
+        workflow = check_workflow(checked_test["n_steps"], settings, max_rollout=MAX_ROLLOUT_STEPS, history_steps=HISTORY_STEPS, label="test window")
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        if byod_path is None and not run.options.byod:
+            raise
+        # DAT20: a refused BYOD file invalidates the run (earlier results are removed, so none can be read as current)
+        # and stops the cell with one message, no traceback.
+        cleared = run.invalidate("data")
+        raise Refusal(f"BYOD file refused: {exc}. The results of the earlier configuration were cleared ({len(cleared)} files); fix the file, or set USE_BYOD = False to return to the sample, then re-run Section 5") from exc
     removed = run.invalidate("data")
     if byod_path is not None:
         accepted = run.state / "byod" / byod_path.name
@@ -432,7 +800,8 @@ def stage_data(run: Run) -> None:
     print({"time_span": dataset_manifest["time_span"], "digest": dataset_manifest["digest"][:16] + "..."})
     print({"roles": roles})
     print({"settings": settings, "steps_needed_for_these_settings": workflow["required_steps"], "test_window_steps": checked_test["n_steps"], "new_origin_section_10": workflow["new_origin"], "verdict": "accepted"})
-    print({"2t_mean_K_by_window": {w["name"]: round(float(w["surf"]["2t"].mean()), 2) for w in [*train_windows, val_window, test_window]}})
+    print({"2t_mean_K_by_window": {w["name"]: round(float(w["surf"]["2t"].mean()), 2) for w in [*train_windows, *val_windows, test_window]}})
+    print({"exposed_development_test": test_window["name"], "note": "the default recipe was developed on this window; it is reported, never called independent", "fresh_test": f"{len(roles['fresh_test'])} pinned windows, not fetched here (Section 9 fetches them only for a pre-registered scoring)"})
     sample_path = write_window_netcdf(trim_window(test_window, workflow["required_steps"]), run.out / f"{STEM}_sample_window.nc")
     print({"sample_netcdf": str(sample_path), "steps": workflow["required_steps"], "megabytes": round(sample_path.stat().st_size / 1e6, 1), "note": "the shortest window that completes every stage at these settings"})
     print({"validation": INPUT_SCHEMA["validation"]})
@@ -526,44 +895,99 @@ def _progress(entry: dict[str, Any]) -> None:
     print(row, flush=True)
 
 
+def validation_metric(pipe: Any, windows: list[dict[str, Any]], lead_steps: int) -> dict[str, Any]:
+    """The selection metric: first-lead (6 h) nine-variable mean RMSE ratio against persistence, per validation window
+    and averaged over windows (lower is better)."""
+    per_window = {}
+    for window in windows:
+        summary = pipe.evaluate(window, max_lead_steps=lead_steps)["summary"]
+        per_window[window["name"]] = float(summary[next(iter(summary))]["mean_skill"])
+    return {"per_window": per_window, "mean": sum(per_window.values()) / len(per_window)}
+
+
 def stage_adapt(run: Run) -> None:
-    """Section 8: bounded fine-tuning of a freshly built frozen pipeline; adapter export; reference forecast."""
+    """Section 8: the pre-registered validation grid (GPU) or the recorded selection (CPU) or the learner's own
+    configuration (exploratory); each config trains a freshly built frozen pipeline; selection on validation only."""
     import numpy as np
 
-    run.invalidate("adapt")
-    data, train_windows, val_window, test_window = load_windows(run, "adapt")
+    run.invalidate("adapt")  # Section 8 reset: no adapter, grid row or record of an earlier run survives
+    data, train_windows, val_windows, test_window = load_windows(run, "adapt")
     training = _training_options(run)
-    pipe = frozen_pipeline(run)
-    print({"starts_from": "the pretrained model, built from the verified files in this process", "adapted": pipe.adapter is not None, "lora_b_max_abs": lora_b_max_abs(pipe), "device": pipe.device})
-    started = time.perf_counter()
-    result = pipe.adapt(train_windows, val_window, epochs=training["epochs"], lr=training["learning_rate"], trainable=training["trainable"], progress=_progress)
-    seconds = round(time.perf_counter() - started, 1)
-    print({"trainable_parameters": result["n_trainable"], "total_parameters": result["n_total"], "training_samples": result["n_train_samples"], "best_epoch": result["best_epoch"], "seconds": seconds, "device": pipe.device})
-    print({"loss_scales": result["loss_scales"]})
-    artifact = pipe.save_artifact(run.out / ADAPTER_DIR, metadata={"tutorial": STEM, "data_source": data["data_source"], "dataset_digest": data["digest"]})
-    manifest = json.loads((artifact / "manifest.json").read_text(encoding="utf-8"))
-    print({"artifact": str(artifact), "format": manifest["format"], "tensors": len(manifest["tensors"]), "bytes": manifest["files"][0]["bytes"], "sha256": manifest["files"][0]["sha256"][:16] + "..."})
-    reference = pipe.predict(test_window, origin=data["settings"]["origin"], steps=2)["forecasts"]
-    arrays = {f"{group}/{lead}/{name}": f[group][name] for lead, f in enumerate(reference) for group in ("surf", "atmos") for name in f[group]}
-    np.savez(run.state / "reference_forecast.npz", **arrays)
-    run.write_output(f"{STEM}_training_history.json", {"training": training, "history": result["history"], "best_epoch": result["best_epoch"], "seconds": seconds})
-    run.write_state("adapt.json", {"training": training, "settings": data["settings"], "dataset_digest": data["digest"], "seconds": seconds, "adaptation": {k: v for k, v in result.items() if k not in ("history", "trainable_names")}})
-
-
-def stage_evaluate(run: Run) -> None:
-    """Section 9: the adapter, rebuilt from files in a new process, scored on the held-out window; three-way table."""
-    from aurora_earth_system_pipeline import MODEL_ID, MODEL_KEY, MODEL_REVISION
-
-    run.invalidate("evaluate")
-    data, train_windows, val_window, test_window = load_windows(run, "evaluate")
-    frozen = run.read_output(f"{STEM}_frozen_test.json", "evaluate")
-    if frozen["dataset_digest"] != data["digest"] or frozen["settings"] != data["settings"]:
-        raise RuntimeError("the frozen scores were computed for other data or settings; re-run from Section 7")
-    pipe, adapt = adapted_pipeline(run, "evaluate")
+    runtime = current_runtime()
     lead = data["settings"]["max_lead_steps"]
-    adapted_test = pipe.evaluate(test_window, max_lead_steps=lead)
-    adapted_val = pipe.evaluate(val_window, max_lead_steps=1)
-    frozen_test = frozen["frozen_test"]
+    default_path = is_default(data, training)
+    if default_path and runtime["device"] == "cuda":
+        mode, configs = "grid", list(GRID)
+    elif default_path:
+        chosen = RECORDED_SELECTION or DEFAULT_CONFIG
+        # F5: a recorded selection of the frozen model trains nothing.
+        mode, configs = f"recorded selection {chosen} (grid off on CPU; exploratory)", ([] if chosen == "frozen" else [chosen])
+    else:
+        mode, configs = "exploratory: your own configuration (validation and the exposed development test only)", ["custom"]
+    print({"mode": mode, "device": runtime["device"], "gpu": runtime["gpu"], "fresh_test_masked": fresh_test_masked(), "determinism": runtime["determinism"], "validation_windows": [w["name"] for w in val_windows]})
+    seed_all()
+    frozen = frozen_pipeline(run)
+    frozen_val = validation_metric(frozen, val_windows, lead)
+    del frozen
+    print({"frozen_validation_metric": round(frozen_val["mean"], 4), "per_window": {k: round(v, 4) for k, v in frozen_val["per_window"].items()}})
+    rows, results, started = [], {}, time.perf_counter()
+    for name in configs:
+        params = GRID[name] if name in GRID else {"learning_rate": training["learning_rate"], "epochs": training["epochs"], "patience": None}
+        seed_all()
+        pipe = frozen_pipeline(run)
+        print({"config": name, **params, "trainable": training["trainable"], "starts_from_lora_b_max_abs": lora_b_max_abs(pipe)})
+        result = pipe.adapt(train_windows, val_windows, epochs=params["epochs"], lr=params["learning_rate"], trainable=training["trainable"], seed=SEED, patience=params["patience"], progress=_progress)
+        metric = validation_metric(pipe, val_windows, lead)
+        target = run.state / "grid" / name
+        pipe.save_artifact(target / ADAPTER_DIR, metadata={"tutorial": STEM, "config": name, "data_source": data["data_source"], "dataset_digest": data["digest"]})
+        reference = pipe.predict(test_window, origin=data["settings"]["origin"], steps=2)["forecasts"]
+        np.savez(target / "reference_forecast.npz", **{f"{group}/{k}/{n}": f[group][n] for k, f in enumerate(reference) for group in ("surf", "atmos") for n in f[group]})
+        row = {
+            "config": name,
+            "learning_rate": params["learning_rate"],
+            "epochs_budget": params["epochs"],
+            "patience": params["patience"],
+            "epochs_run": result["epochs_run"],
+            "best_epoch": result["best_epoch"],
+            "selection_bound": result["best_epoch"] < params["epochs"],
+            "val_losses": [round(h["val_loss"], 4) for h in result["history"]],
+            "val_metric": round(metric["mean"], 4),
+            "val_metric_exact": metric["mean"],
+            "val_metric_per_window": {k: round(v, 4) for k, v in metric["per_window"].items()},
+            "adapter_sha256": json.loads((target / ADAPTER_DIR / "manifest.json").read_text(encoding="utf-8"))["files"][0]["sha256"],
+        }
+        rows.append(row)
+        results[name] = result
+        print({k: (v[:16] + "..." if k == "adapter_sha256" else v) for k, v in row.items() if k != "val_metric_exact"}, flush=True)
+        del pipe
+    if mode == "grid":
+        selection = select_config({r["config"]: r["val_metric_exact"] for r in rows}, frozen_val["mean"])
+        selected = selection["selected"]
+    else:
+        selection, selected = None, (configs[0] if configs else "frozen")
+    complete = mode == "grid" and [r["config"] for r in rows] == list(GRID)
+    digest = grid_hash(rows, frozen_val["mean"], selected)
+    grid = {"ran": mode == "grid", "complete": complete, "table_hash": grid_table_hash(), "rows": rows, "frozen_metric": round(frozen_val["mean"], 4), "frozen_metric_exact": frozen_val["mean"], "selection": selection, "grid_hash": digest}
+    print({"selected_system": selected, "rule": f"keep {DEFAULT_CONFIG} unless beaten by >= {SELECTION_MARGIN}; keep frozen unless beaten by >= {KEEP_FROZEN_MARGIN}" if mode == "grid" else "no grid in this mode"})
+    print({"grid_hash": digest, "compare": "two runs with the same settings must print the same grid_hash"})
+    seconds = round(time.perf_counter() - started, 1)
+    if selected == "frozen":
+        sha, adaptation = None, {"note": "the frozen model was kept (no config beat it on validation by the margin)"}
+        seed_all()
+        reference = frozen_pipeline(run).predict(test_window, origin=data["settings"]["origin"], steps=2)["forecasts"]
+        np.savez(run.state / "reference_forecast.npz", **{f"{group}/{k}/{n}": f[group][n] for k, f in enumerate(reference) for group in ("surf", "atmos") for n in f[group]})
+    else:
+        shutil.copytree(run.state / "grid" / selected / ADAPTER_DIR, run.out / ADAPTER_DIR)
+        shutil.copyfile(run.state / "grid" / selected / "reference_forecast.npz", run.state / "reference_forecast.npz")
+        sha = artifact_sha256(run)
+        adaptation = {k: v for k, v in results[selected].items() if k not in ("history", "trainable_names")}
+        manifest = json.loads((run.out / ADAPTER_DIR / "manifest.json").read_text(encoding="utf-8"))
+        print({"artifact": ADAPTER_DIR, "config": selected, "format": manifest["format"], "tensors": len(manifest["tensors"]), "bytes": manifest["files"][0]["bytes"], "sha256": manifest["files"][0]["sha256"][:16] + "..."})
+    run.write_output(f"{STEM}_training_history.json", {"training": training, "mode": mode, "grid": grid, "selected_system": selected, "histories": {n: r["history"] for n, r in results.items()}, "seconds": seconds})
+    run.write_state("adapt.json", {"training": training, "mode": mode, "seed": SEED, "settings": data["settings"], "dataset_digest": data["digest"], "runtime": runtime, "grid": grid, "selected_system": selected, "artifact_sha256": sha, "frozen_validation": frozen_val, "seconds": seconds, "adaptation": adaptation})
+
+
+def _comparison(frozen_test: dict[str, Any], adapted_test: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     comparison = {
         name: {
             k: {"persistence": round(row["persistence"], 4), "frozen": round(frozen_test["variables"][name][k]["model"], 4), "adapted": round(row["model"], 4), "skill_frozen": round(frozen_test["variables"][name][k]["skill"], 3), "skill_adapted": round(row["skill"], 3)}
@@ -571,50 +995,128 @@ def stage_evaluate(run: Run) -> None:
         }
         for name in REPORTED
     }
-    for name in ("2t", "msl", "z500", "u"):
-        print({name: comparison[name]})
     summary = {
         k: {"frozen_mean_skill": round(frozen_test["summary"][k]["mean_skill"], 3), "adapted_mean_skill": round(adapted_test["summary"][k]["mean_skill"], 3), "beating_persistence_frozen": frozen_test["summary"][k]["variables_beating_persistence"], "beating_persistence_adapted": adapted_test["summary"][k]["variables_beating_persistence"]}
         for k in adapted_test["leads"]
     }
+    return comparison, summary
+
+
+def score_fresh(frozen: Any, selected: Any, windows: dict[str, dict[str, Any]], lead: int, selected_system: str = "") -> dict[str, Any]:
+    """Frozen and selected system on every fresh window; per-window first-lead ratios and the reading rule. If the
+    frozen model was kept, Δ is 0 by construction (same model): the primary endpoint is not applicable (Amendment 2)."""
+    rows = {}
+    for name, window in windows.items():
+        f = frozen.evaluate(window, max_lead_steps=lead)["summary"]
+        a = selected.evaluate(window, max_lead_steps=lead)["summary"]
+        first = next(iter(a))
+        rows[name] = {"frozen_ratio": round(float(f[first]["mean_skill"]), 4), "adapted_ratio": round(float(a[first]["mean_skill"]), 4), "delta": round(float(a[first]["mean_skill"]) - float(f[first]["mean_skill"]), 4)}
+    rule = reading_rule([r["delta"] for r in rows.values()], [r["adapted_ratio"] for r in rows.values()])
+    if selected_system == "frozen":
+        rule = {**rule, "verdict": "not applicable (frozen model kept on validation; same model)", "mean_delta": None, "ci95_t": None, "ci95_bootstrap": None, "sd_delta": None}
+    return {"per_window": rows, "reading_rule": rule}
+
+
+def compare_with_record(selected_system: str, grid_hash_value: str, reading_rule_value: dict[str, Any]) -> dict[str, Any] | None:
+    """A reproduction against the evaluation of record: the fields that differ, by name (selection, grid hash, each
+    reading-rule value as printed). None when no record exists."""
+    if RECORDED_EVALUATION is None:
+        return None
+    differs = [k for k, v in (("selected_system", selected_system), ("grid_hash", grid_hash_value)) if RECORDED_EVALUATION.get(k) != v]
+    recorded_rule = RECORDED_EVALUATION.get("reading_rule") or {}
+    differs += [f"reading_rule.{k}" for k in recorded_rule if _jsonable_rule(reading_rule_value.get(k)) != recorded_rule[k]]
+    return {"record": f"{RECORDED_EVALUATION.get('date')} hosted T4, commit {str(RECORDED_EVALUATION.get('commit'))[:7]}", "matches_record": not differs, "differs": differs}
+
+
+def _jsonable_rule(value: Any) -> Any:
+    return list(value) if isinstance(value, tuple) else value
+
+
+def stage_evaluate(run: Run) -> None:
+    """Section 9: the selected system on the exposed development test (always) and on the fresh test (only when every
+    pre-registered check passes, recomputed here); never raises on any test outcome."""
+    from aurora_earth_system_pipeline import MODEL_ID, MODEL_KEY, MODEL_REVISION, fetch_fresh_test
+
+    run.invalidate("evaluate")
+    data, _train, _val, test_window = load_windows(run, "evaluate")
+    frozen = run.read_output(f"{STEM}_frozen_test.json", "evaluate")
+    if frozen["dataset_digest"] != data["digest"] or frozen["settings"] != data["settings"]:
+        raise RuntimeError("the frozen scores were computed for other data or settings; re-run from Section 7")
+    pipe, adapt = adapted_pipeline(run, "evaluate")
+    lead = data["settings"]["max_lead_steps"]
+    adapted_test = pipe.evaluate(test_window, max_lead_steps=lead)
+    frozen_test = frozen["frozen_test"]
+    comparison, summary = _comparison(frozen_test, adapted_test)
+    print({"exposed_development_test": test_window["name"], "selected_system": adapt["selected_system"], "note": "the default recipe was developed on this window; not an independent estimate"})
+    for name in ("2t", "msl", "z500", "u"):
+        print({name: comparison[name]})
     for k, row in summary.items():
         print({k: row})
     first = adapted_test["leads"][0]
     outcome = {
         "lead": first,
+        "window": "exposed development test",
         "adapted_mean_skill_below_frozen": summary[first]["adapted_mean_skill"] < summary[first]["frozen_mean_skill"],
         "more_variables_beat_persistence": summary[first]["beating_persistence_adapted"] > summary[first]["beating_persistence_frozen"],
         "default_configuration": is_default(data, adapt["training"]),
     }
+    runtime = current_runtime()
+    differing = settings_differing(data, adapt, runtime, artifact_sha256(run))
+    preregistered = not differing
+    masked = fresh_test_masked()
     report = {
         "model": {"id": MODEL_ID, "revision": MODEL_REVISION, "key": MODEL_KEY},
         "data_source": data["data_source"],
         "dataset_digest": data["digest"],
         "settings": data["settings"],
         "training": adapt["training"],
+        "mode": adapt["mode"],
+        "selected_system": adapt["selected_system"],
+        "grid_hash": adapt["grid"]["grid_hash"],
         "roles": data["roles"],
+        "runtime": runtime,
+        "preregistered": preregistered,
+        "settings_differing": differing,
+        "validation": {"frozen": adapt["frozen_validation"], "grid": adapt["grid"]},
         "persistence_baseline": frozen["persistence_baseline"],
-        "frozen_test": frozen_test,
-        "validation_metrics": adapted_val,
-        "test_metrics": adapted_test,
-        "comparison": comparison,
+        "exposed_development_test": {"frozen": frozen_test, "adapted": adapted_test, "comparison": comparison, "summary": summary, "outcome": outcome},
         "summary": summary,
         "outcome": outcome,
         "adaptation": adapt["adaptation"],
         "adaptation_seconds": adapt["seconds"],
-        "evidence": "tutorial sample-sanity numbers from one window per role and one seeded run; not a benchmark",
+        "evidence": "the exposed development test is one window the recipe was developed on; the fresh test is scored only under the pre-registered settings (docs/aurora-preregistration.md); see docs/release-verification.md for the recorded evaluation and its reproductions",
     }
+    if masked or not preregistered:
+        report["test_look"] = LOOK_MASKED if masked and preregistered else LOOK_EXPLORATORY
+        path = _next_free(run, "exploratory")
+        report["fresh_test_file"] = path.name
+        atomic_write_text(path, json.dumps({k: report[k] for k in ("test_look", "preregistered", "settings_differing", "mode", "selected_system", "grid_hash", "validation", "outcome", "runtime")}, indent=2, ensure_ascii=False, default=_jsonable))
+        run.write_output(f"{STEM}_evaluation_report.json", report)
+        print({"fresh_test": report["test_look"], "settings_differing": differing, "record": path.name})
+        return
+    preflight = fresh_preflight(run)
+    print({"fresh_test_preflight": preflight})
+    look = next_look(run)
+    try:
+        windows = fetch_fresh_test(cache_dir=run.data_cache)  # every object fetched, digest-checked and decoded first
+    except Exception as exc:
+        report["test_look"] = f"not scored (fresh-test fetch failed: {type(exc).__name__}); not a look"
+        run.write_output(f"{STEM}_evaluation_report.json", report)
+        raise RuntimeError(f"the fresh-test windows could not be fetched or decoded ({exc}); nothing was scored and no look was recorded") from exc
+    seed_all()
+    fresh = score_fresh(frozen_pipeline(run), pipe, windows, lead, adapt["selected_system"])
+    fresh_report = {"test_look": look["label"], "preregistered": True, "settings_differing": [], "selected_system": adapt["selected_system"], "grid_hash": adapt["grid"]["grid_hash"], "runtime": runtime, "fresh_test": fresh, "prior_looks_in_this_runtime": look["prior_looks"], "record_note": "which run is THE evaluation of record is stated in docs/release-verification.md"}
+    record_look(run, look, fresh_report)  # the look counts from here: report written, then the ledger
+    report["test_look"] = look["label"]
+    report["fresh_test_file"] = look["path"].name
+    report["fresh_test"] = fresh
     run.write_output(f"{STEM}_evaluation_report.json", report)
-    verdict = "the adapted model beats the frozen model at " + first if outcome["adapted_mean_skill_below_frozen"] else "the adapted model does NOT beat the frozen model at " + first
-    print({"outcome": verdict, **outcome, "report": f"outputs/{STEM}_evaluation_report.json"})
-    if outcome["default_configuration"] and not (outcome["adapted_mean_skill_below_frozen"] and outcome["more_variables_beat_persistence"]):
-        # A default-path regression check against the recorded run, not a scientific test: the default recipe and this
-        # test window were developed together, and on the default sample and settings the recorded runs improve both
-        # numbers. Stopping here says only that the default path no longer reproduces the recorded result.
-        raise RuntimeError(
-            "default-path regression check against the recorded run failed (not a scientific test): on the default "
-            f"configuration the recorded runs improve on the frozen model and on persistence here, and this run did not: {summary[first]}"
-        )
+    for name, row in fresh["per_window"].items():
+        print({name: row})
+    print({"fresh_test": look["label"], **fresh["reading_rule"], "record": look["path"].name})
+    comparison = compare_with_record(adapt["selected_system"], adapt["grid"]["grid_hash"], fresh["reading_rule"])
+    if comparison is not None:
+        print({"reproduction_of": comparison["record"], "matches_record": comparison["matches_record"], "differs": comparison["differs"]})
 
 
 def stage_forecast(run: Run) -> None:
@@ -633,7 +1135,7 @@ def stage_forecast(run: Run) -> None:
         row = {"lead_hours": forecast["lead_hours"], "valid_time": forecast["valid_time"], "2t_mean_K": round(float(forecast["surf"]["2t"].mean()), 3)}
         if origin + k < len(test_window["times"]):
             row["2t_rmse_vs_analysis"] = round(lat_weighted_rmse(forecast["surf"]["2t"], test_window["surf"]["2t"][origin + k, :height], result["lat"]), 3)
-        row["note"] = "sanity check, not an evaluation"
+        row["note"] = "sanity check on the exposed development test, not an evaluation"
         leads.append(row)
         print(row)
     dataset = forecast_dataset(result, LEVELS, data["data_source"])
@@ -663,7 +1165,7 @@ def stage_reload(run: Run) -> None:
                 expected = reference[f"{group}/{lead}/{name}"]
                 diffs[group] = max(diffs[group], float(np.abs(field - expected).max()))
                 within = within and bool(np.allclose(field, expected, rtol=PARITY_RTOL, atol=PARITY_ATOL))
-    parity = {"max_abs_surf_diff": diffs["surf"], "max_abs_atmos_diff": diffs["atmos"], "rtol": PARITY_RTOL, "atol": PARITY_ATOL, "reload_verification": "PASSED" if within else "FAILED", "reloaded_best_epoch": pipe.adapter["best_epoch"], "compared": "2 forecast steps from ORIGIN, every variable, against the trained model in the adapt stage"}
+    parity = {"max_abs_surf_diff": diffs["surf"], "max_abs_atmos_diff": diffs["atmos"], "rtol": PARITY_RTOL, "atol": PARITY_ATOL, "reload_verification": "PASSED" if within else "FAILED", "reloaded_best_epoch": pipe.adapter["best_epoch"] if pipe.adapter else 0, "compared": "2 forecast steps from ORIGIN, every variable, against the trained model in the adapt stage"}
     run.write_output(f"{STEM}_reload_parity.json", parity)
     print({"reload_parity": parity})
     if not within:
@@ -679,7 +1181,8 @@ def stage_bundle(run: Run) -> None:
     weights = run.read_state("weights.json", "bundle")
     data = run.read_state("data.json", "bundle")
     report = run.read_output(f"{STEM}_evaluation_report.json", "bundle")
-    manifest = json.loads((run.out / ADAPTER_DIR / "manifest.json").read_text(encoding="utf-8"))
+    manifest_path = run.out / ADAPTER_DIR / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else None
     payload = {
         "notebook_source": source,
         "repository_revision": source["revision"],
@@ -701,7 +1204,12 @@ def stage_bundle(run: Run) -> None:
         "training": report["training"],
         "summary": report["summary"],
         "outcome": report["outcome"],
-        "artifact": {"dir": ADAPTER_DIR, "sha256": manifest["files"][0]["sha256"], "bytes": manifest["files"][0]["bytes"]},
+        "selected_system": report["selected_system"],
+        "grid_hash": report["grid_hash"],
+        "test_look": report["test_look"],
+        "preregistered": report["preregistered"],
+        "settings_differing": report["settings_differing"],
+        "artifact": {"dir": ADAPTER_DIR, "sha256": manifest["files"][0]["sha256"], "bytes": manifest["files"][0]["bytes"]} if manifest else None,
         "reload_parity": run.read_output(f"{STEM}_reload_parity.json", "bundle"),
     }
     files = sorted(p for p in run.out.rglob("*") if p.is_file() and "activity" not in p.relative_to(run.out).parts and p.name != f"{STEM}_result.json")
@@ -715,20 +1223,24 @@ def stage_bundle(run: Run) -> None:
 def stage_activity(run: Run) -> None:
     """Section 13 (optional): change one thing -- the adaptation scope -- and compare per variable; writes only under
     outputs/activity/ and checks that no canonical output changed."""
-    data, train_windows, val_window, test_window = load_windows(run, "activity")
+    data, train_windows, val_windows, test_window = load_windows(run, "activity")
     report = run.read_output(f"{STEM}_evaluation_report.json", "activity")
     canonical = {p.relative_to(run.out).as_posix(): sha256_file(p) for p in sorted(run.out.rglob("*")) if p.is_file() and "activity" not in p.relative_to(run.out).parts}
     training = {**report["training"], "trainable": run.options.trainable}
+    if report.get("selected_system") in GRID:
+        training.update(epochs=GRID[report["selected_system"]]["epochs"], learning_rate=GRID[report["selected_system"]]["learning_rate"])
     if training["trainable"] == report["training"]["trainable"]:
         raise ValueError(f"the activity changes the adaptation scope: choose a TRAINABLE other than the canonical {report['training']['trainable']!r}")
     pipe = frozen_pipeline(run)
     print({"changed_variable": "adaptation scope (TRAINABLE)", "canonical": report["training"]["trainable"], "activity": training["trainable"], "unchanged": {k: v for k, v in training.items() if k != "trainable"}, "starts_from_lora_b_max_abs": lora_b_max_abs(pipe)})
-    result = pipe.adapt(train_windows, val_window, epochs=training["epochs"], lr=training["learning_rate"], trainable=training["trainable"], progress=_progress)
+    print({"test_look": LOOK_EXPLORATORY, "scores": "validation and the exposed development test only; the fresh test is never scored by the activity"})
+    result = pipe.adapt(train_windows, val_windows, epochs=training["epochs"], lr=training["learning_rate"], trainable=training["trainable"], seed=SEED, progress=_progress)
     test = pipe.evaluate(test_window, max_lead_steps=data["settings"]["max_lead_steps"])
     first = test["leads"][0]
+    canonical_test = report["exposed_development_test"]["adapted"]
     rows = {}
     for name in REPORTED:
-        canon = report["test_metrics"]["variables"][name][first]["skill"]
+        canon = canonical_test["variables"][name][first]["skill"]
         changed = test["variables"][name][first]["skill"]
         rows[name] = {"skill_canonical": round(canon, 3), "skill_activity": round(changed, 3), "better_with_activity": changed < canon}
         print({name: rows[name]})
@@ -740,14 +1252,16 @@ def stage_activity(run: Run) -> None:
         "best_epoch": result["best_epoch"],
         "lead": first,
         "per_variable": rows,
-        "mean_skill": {"canonical": round(report["test_metrics"]["summary"][first]["mean_skill"], 3), "activity": round(test["summary"][first]["mean_skill"], 3)},
+        "test_look": LOOK_EXPLORATORY,
+        "window": "exposed development test",
+        "mean_skill": {"canonical": round(canonical_test["summary"][first]["mean_skill"], 3), "activity": round(test["summary"][first]["mean_skill"], 3)},
         "surface_better": sum(rows[n]["better_with_activity"] for n in ("2t", "10u", "10v", "msl")),
         "upper_air_better": sum(rows[n]["better_with_activity"] for n in ("t", "u", "v", "q", "z", "z500")),
     }
     out = run.out / "activity"
     out.mkdir(exist_ok=True)
     tag = training["trainable"].replace("+", "_plus_")
-    (out / f"{STEM}_activity_{tag}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+    atomic_write_text(out / f"{STEM}_activity_{tag}.json", json.dumps(record, indent=2))
     after = {p.relative_to(run.out).as_posix(): sha256_file(p) for p in sorted(run.out.rglob("*")) if p.is_file() and "activity" not in p.relative_to(run.out).parts}
     if after != canonical:
         raise RuntimeError("the activity changed a canonical output; it must write only under outputs/activity/")
@@ -795,7 +1309,27 @@ def main(argv: list[str] | None = None) -> int:
     error_file.unlink(missing_ok=True)
     started = time.perf_counter()
     try:
+        if options.stage not in ("data", "weights"):
+            apply_determinism()
         STAGES[options.stage](run)
+    except Refusal as exc:  # DAT20: one actionable message, no traceback
+        error_file.write_text(json.dumps({"stage": options.stage, "type": "Refusal", "message": str(exc), "refusal": True}), encoding="utf-8")
+        print(f"REFUSED ({options.stage}): {exc}", flush=True)
+        return 3
+    except RuntimeError as exc:
+        if "deterministic" not in str(exc):
+            raise_into = exc
+        else:
+            # An op with no deterministic kernel: STOP and name it (never warn_only; docs/aurora-preregistration.md §3).
+            message = f"STOP: an operation has no deterministic implementation on this device and was not worked around: {exc}"
+            error_file.write_text(json.dumps({"stage": options.stage, "type": "NondeterministicOperation", "message": message}), encoding="utf-8")
+            print(message, flush=True)
+            return 2
+        traceback.print_exc()
+        message = str(raise_into) or repr(raise_into)
+        error_file.write_text(json.dumps({"stage": options.stage, "type": type(raise_into).__name__, "message": message}), encoding="utf-8")
+        print(f"STAGE FAILED ({options.stage}): {type(raise_into).__name__}: {message}", flush=True)
+        return 2
     except Exception as exc:  # the notebook re-raises this message in the kernel
         traceback.print_exc()
         message = str(exc) or repr(exc)
