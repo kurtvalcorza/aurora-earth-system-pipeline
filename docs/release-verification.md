@@ -273,6 +273,8 @@ Under NOTEBOOK_SPEC §5 and RUN10 that is not `Run all` evidence, so the status 
 rows above are corrected accordingly and remain history. Before promotion: the hosted optional journeys of step 6 (the
 activity, BYOD positive and BYOD negative runs), the equivalent Kaggle run, and an explicit promotion decision.
 
+The current blob `42dc70ac` (code commit `21a8b7e`) shows a refused BYOD input as exactly one `Refused: <file>: <reason>` line (previously a differently prefixed line), with no traceback, and stops Run all at that cell; genuine failures keep their traceback (NOTEBOOK_SPEC DAT19/DAT20). Its hosted Colab T4 runs (the default path and a scripted refusal, `USE_BYOD=True;BYOD_PATH='/etc/hostname'`) are pending, and the hosted runs of earlier blobs, including `e19c3b00`, are history for it (REL14).
+
 ### Hosted T4 reproduction (2026-10-19): commit `6ba09d2`, blob `e19c3b00`
 
 The first run of the record-pinned notebook (`RECORDED_EVALUATION` and `RECORDED_SELECTION = "C2"`, set in `58091a0`) in a fresh Colab runtime. It is the second hosted look at the 12-window fresh test and is labelled `reproduction`, as the score-once rule requires. Evidence: [`execution-evidence/2026-10-19-6ba09d2/`](execution-evidence/2026-10-19-6ba09d2/).
