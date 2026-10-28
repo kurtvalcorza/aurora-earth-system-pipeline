@@ -201,7 +201,7 @@ class Run:
 
 
 class Refusal(ValueError):
-    """A refused learner input (DAT20): the notebook prints the message without a traceback and stops the cell."""
+    """A refused learner input (DAT20): ``<file>: <reason>``; the notebook shows ``Refused: <file>: <reason>`` without a traceback and stops the cell."""
 
 
 def atomic_write_text(path: Path, text: str) -> Path:
@@ -762,7 +762,7 @@ def stage_data(run: Run) -> None:
             # rewrites below, and every later stage re-reads the window from the accepted copy.
             original = Path(run.options.byod).resolve()
             if not original.is_file():
-                raise FileNotFoundError(f"BYOD file not found: {original.name}. Set BYOD_PATH to a NetCDF file on this machine, or leave it empty to upload one in Google Colab")
+                raise FileNotFoundError("not found on this machine. Set BYOD_PATH to a NetCDF file on this machine, or leave it empty to upload one in Google Colab")
             byod_path = run.state / "byod_incoming" / original.name
             byod_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(original, byod_path)
@@ -789,7 +789,7 @@ def stage_data(run: Run) -> None:
         # DAT20: a refused BYOD file invalidates the run (earlier results are removed, so none can be read as current)
         # and stops the cell with one message, no traceback.
         cleared = run.invalidate("data")
-        raise Refusal(f"BYOD file refused: {exc}. The results of the earlier configuration were cleared ({len(cleared)} files); fix the file, or set USE_BYOD = False to return to the sample, then re-run Section 5") from exc
+        raise Refusal(f"{Path(run.options.byod).name}: BYOD file refused: {exc}. The results of the earlier configuration were cleared ({len(cleared)} files); fix the file, or set USE_BYOD = False to return to the sample, then re-run Section 5") from exc
     removed = run.invalidate("data")
     if byod_path is not None:
         accepted = run.state / "byod" / byod_path.name
