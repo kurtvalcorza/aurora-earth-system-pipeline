@@ -42,7 +42,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "build_notebook.py/3.0"
+GENERATOR_VERSION = "build_notebook.py/3.1"
 NOTEBOOK_SPEC = "2.5"
 NOTEBOOK_SPEC_SOURCE = "ml-worker integrations/dimer/fleet-specs/NOTEBOOK_SPEC.md at dd64986fa6e5a99f2b928229dd69327db5b3b897"
 SOURCE_RECORD = "source.json"
@@ -331,6 +331,9 @@ def run_stage(stage, *options):
         for line in process.stdout:
             output.write(line)
             output.flush()
+            # A stage's own refusal line stays in the log: the cell shows the refusal once, as its error line (DAT20).
+            if line.startswith('REFUSED ('):
+                continue
             if line.strip() and len(line) < 4000:
                 print(line.rstrip(), flush=True)
         process.wait()
@@ -345,10 +348,10 @@ def run_stage(stage, *options):
 
 
 class StageRefused(Exception):
-    \"\"\"A refused input or setting: shown as one message, without a traceback, and Run all stops here.\"\"\"
+    \"\"\"A refused input or setting: shown as one line, `Refused: <file>: <reason>`, without a traceback, and Run all stops here.\"\"\"
 
     def _render_traceback_(self):
-        return ['REFUSED: ' + str(self)]
+        return ['Refused: ' + str(self)]
 
 
 def load_record(name):
@@ -361,18 +364,18 @@ def obtain_upload(path_text, suffix, field):
     if path_text.strip():
         path = Path(path_text).expanduser()
         if not path.is_file():
-            raise StageRefused(f'{{field}} = {{path_text!r}} is not a file on this machine; fix the path, or leave it empty to upload in Colab')
+            raise StageRefused(f'{{path.name or path_text}}: {{field}} = {{path_text!r}} is not a file on this machine; fix the path, or leave it empty to upload in Colab')
         return path.resolve()
     try:
         from google.colab import files
     except ImportError as exc:
-        raise StageRefused(f'The upload dialog needs Google Colab. Elsewhere, put the file on this machine and set {{field}} to its path.') from exc
+        raise StageRefused(f'(no file): the upload dialog needs Google Colab. Elsewhere, put the file on this machine and set {{field}} to its path.') from exc
     uploaded = files.upload()
     if len(uploaded) != 1:
-        raise StageRefused(f'upload exactly one {{suffix}} file (got {{len(uploaded)}}); run the cell again')
+        raise StageRefused(f'(no file): the upload was cancelled, empty or more than one file (got {{len(uploaded)}}); upload exactly one {{suffix}} file and run the cell again')
     name, payload = next(iter(uploaded.items()))
     if not name.lower().endswith(suffix):
-        raise StageRefused(f'the uploaded file must end in {{suffix}}, got {{name!r}}; run the cell again')
+        raise StageRefused(f'{{name}}: the uploaded file must end in {{suffix}}; upload a {{suffix}} file and run the cell again')
     path = ROOT / 'byod' / Path(name).name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)

@@ -74,7 +74,7 @@ def test_m1_kernel_installs_nothing_and_never_asks_for_a_restart():
     assert "sys.executable" not in code and "'-m', 'pip'" not in code and "pip install" not in code
     assert "Restart the runtime" not in code and "packages_distributions" not in code
     assert "'--require-hashes', '--only-binary', ':all:'" in code
-    assert build.GENERATOR_VERSION == "build_notebook.py/3.0" and build.NOTEBOOK_SPEC == "2.5"
+    assert build.GENERATOR_VERSION == "build_notebook.py/3.1" and build.NOTEBOOK_SPEC == "2.5"
     md = _markdown().lower()
     assert "restart" not in md.replace("no runtime restart", "").replace("no restart", "")
 
@@ -280,7 +280,7 @@ def test_m3_and_m4_short_byod_fails_in_the_kernel_with_the_stage_message(tmp_pat
     nc = _nc(tmp_path, 5)
     with pytest.raises(Exception, match=r"BYOD file refused: test window has 5 6-hourly steps") as caught:
         ns["run_stage"]("data", "--byod", nc)
-    assert type(caught.value).__name__ == "StageRefused" and caught.value._render_traceback_()[0].startswith("REFUSED: ")
+    assert type(caught.value).__name__ == "StageRefused" and caught.value._render_traceback_()[0].startswith("Refused: ")
 
 
 def test_m5_infrastructure_cells_are_titled_and_collapsed_and_warnings_are_not_hidden():

@@ -273,6 +273,52 @@ Under NOTEBOOK_SPEC §5 and RUN10 that is not `Run all` evidence, so the status 
 rows above are corrected accordingly and remain history. Before promotion: the hosted optional journeys of step 6 (the
 activity, BYOD positive and BYOD negative runs), the equivalent Kaggle run, and an explicit promotion decision.
 
+The current blob `bc9e31e7` (code commit `21a8b7e`) shows a refused BYOD input as exactly one `Refused: <file>: <reason>` line (previously a differently prefixed line), with no traceback, and stops Run all at that cell; genuine failures keep their traceback (NOTEBOOK_SPEC DAT19/DAT20). Its default path (2026-10-29; 14 code cells, exit 0, 0 errors) and its scripted DAT20 refusal (2026-10-29; `USE_BYOD=True;BYOD_PATH=/etc/hostname`: exactly one `Refused:` line at cell `aurora_earth_system-20`, no traceback, earlier cells clean, VM released) both passed on a hosted Colab Tesla T4 (Colab CLI `colab exec -f`, not a browser `Run all`), and the hosted runs of earlier blobs, including `e19c3b00`, are history for it (REL14).
+
+### Hosted Colab T4 runs of blob `bc9e31e7` (2026-10-29)
+
+These runs executed the PR head `5af76f90a44b9e47dbed4f640f12338fce9cb4ee`, notebook `tutorials/aurora_earth_system_colab.ipynb` blob `bc9e31e7cd95b5871b22da2681afb11e1b7ce6a4`, fetched at the 40-character SHA and Git-blob verified, with the Colab CLI (`colab exec -f`) on a fresh Colab Tesla T4 session (not a browser `Run all`). Each `run_summary.json` records `verdict` `PASS`, `exec_exit_code` 0, `input_unchanged` true and `stop_verified` true (the VM was released), and the SHA-256 of each executed notebook equals the summary's `executed_sha256`.
+
+**Default path (2026-10-29 19:35:40 UTC start).** Default settings, no overrides; session `suite-aurora-5af76f9-272c`; wall 1192.1 s (`wall_s`); `code_cells` 14, `executed_cells` 14, 0 errors. Retained evidence: [`docs/execution-evidence/2026-10-29-5af76f9/`](execution-evidence/2026-10-29-5af76f9/).
+
+Printed by the default run (verbatim lines from the executed outputs):
+
+```text
+{'verified_files': 3, 'converted_present': False}
+{'6h': {'frozen_mean_skill': 1.568, 'adapted_mean_skill': 0.769, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 8}}
+{'12h': {'frozen_mean_skill': 1.328, 'adapted_mean_skill': 0.704, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 9}}
+{'18h': {'frozen_mean_skill': 1.237, 'adapted_mean_skill': 0.73, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 9}}
+{'24h': {'frozen_mean_skill': 1.294, 'adapted_mean_skill': 0.833, 'beating_persistence_frozen': 2, 'beating_persistence_adapted': 8}}
+{'fresh_test': 'reproduction', 'n_windows': 12, 'mean_delta': -0.8028, 'sd_delta': 0.0149, 'ci95_t': [-0.8123, -0.7934], 'ci95_bootstrap': [-0.8103, -0.7944], 'verdict': 'improved', 'adapted_ratio_mean': 0.7703, 'adapted_ratio_ci95_t': [0.7565, 0.7841], 'beats_persistence': True, 'record': 'aurora_earth_system_fresh_test_reproduction_1.json'}
+{'reproduction_of': '2026-10-19 hosted T4, commit 189492a', 'matches_record': True, 'differs': []}
+{'reload_parity': {'max_abs_surf_diff': 0.0, 'max_abs_atmos_diff': 0.0, 'rtol': 1e-05, 'atol': 1e-06, 'reload_verification': 'PASSED', 'reloaded_best_epoch': 30, 'compared': '2 forecast steps from ORIGIN, every variable, against the trained model in the adapt stage'}}
+```
+
+**DAT20 refusal record (2026-10-29, blob `bc9e31e7`).** Overrides, set by `--set` on a copy of the blob: `USE_BYOD` `False` → `True` and `BYOD_PATH` `''` → `'/etc/hostname'` (the run copy differs from the blob in exactly those 2 source lines). The suite cut the run copy right after the refusing cell `aurora_earth_system-20`, dropping 26 cells (8 of them code cells), which reproduces `Run all` stopping at the first error; the cut copy is `run_copy.ipynb`, SHA-256 `11513d9139a2b6812535819ae8fbb431e5a8e31cb19170cd3265e8ad98f27567` (Git blob `bf5fa805`), equal to the summary's `run_copy_sha256`. The cut copy's earlier code cells completed without an error output; the refusing cell's only error output has `ename` `StageRefused` and no traceback, and its output holds exactly one `Refused:` line:
+
+```text
+Refused: hostname: BYOD file refused: BYOD datasets must be NetCDF (.nc). The results of the earlier configuration were cleared (0 files); fix the file, or set USE_BYOD = False to return to the sample, then re-run Section 5
+```
+
+This run says nothing about the 26 cut cells, which did not run in it. Session `suite-aurora-5af76f9-272c`, wall 113.8 s. Retained evidence: [`docs/execution-evidence/2026-10-29-5af76f9-refusal/`](execution-evidence/2026-10-29-5af76f9-refusal/).
+
+**Local-path redaction.** Local paths were replaced byte-wise by `<local-run-dir>` (and the Colab CLI install path by `<colab-cli-tool-dir>/`) before the first commit; each executed notebook and run copy was checked against its `run_summary.json` before any edit.
+
+| File (under `docs/execution-evidence/2026-10-29-5af76f9/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `aurora_earth_system_colab_5af76f9_colab-cli-t4_default.ipynb` | `96651ad04a040c5facaf4d488d7eded0789c24f375405f178c7bb829eb7b09eb` | `96651ad04a040c5facaf4d488d7eded0789c24f375405f178c7bb829eb7b09eb` (unchanged, no local path) |
+| `exec.log` | `e5a9e02eb288c27f152398027bb59bafb5fe20dfe335d5d350100358d59a2c3b` | `5f7e8d5934d8b83123160cb94f8c86d9146cc222d361e9094403d90dcb0e80fe` (2 local-path replacements) |
+| `run_summary.json` | `a141b1ca61c7a1e4fecf1342139701a513511c1abeb58aca2b6b9099074c21db` | `a141b1ca61c7a1e4fecf1342139701a513511c1abeb58aca2b6b9099074c21db` (unchanged, no local path) |
+
+| File (under `docs/execution-evidence/2026-10-29-5af76f9-refusal/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `aurora_earth_system_colab_5af76f9_colab-cli-t4_refusal.ipynb` | `b6455e5463e0ad0122a11854ac9f6ddfe564857cb2ef7da90b6211a28f87f211` | `b6455e5463e0ad0122a11854ac9f6ddfe564857cb2ef7da90b6211a28f87f211` (unchanged, no local path) |
+| `exec.log` | `7a6d7ca7de10d19b3f8e308883bf68704e90f13387c9d11d66ec8bac6b194601` | `e549d16287e4cd7a26cdff216ff539819a4c748174414020fcf1769f5804a35d` (2 local-path replacements) |
+| `run_summary.json` | `d9d377a4b35780c2c8a44200cdd3d93d3c96db9000a389ce73c3b67a23d76cac` | `d9d377a4b35780c2c8a44200cdd3d93d3c96db9000a389ce73c3b67a23d76cac` (unchanged, no local path) |
+| `run_copy.ipynb` | `11513d9139a2b6812535819ae8fbb431e5a8e31cb19170cd3265e8ad98f27567` | `11513d9139a2b6812535819ae8fbb431e5a8e31cb19170cd3265e8ad98f27567` (unchanged, no local path) |
+
+Not exercised by these runs: an accepted BYOD input (REL12), a browser `Run all` of the interactive journeys (REL2), and every other open gate named in this file; these runs close none of them.
+
 ### Hosted T4 reproduction (2026-10-19): commit `6ba09d2`, blob `e19c3b00`
 
 The first run of the record-pinned notebook (`RECORDED_EVALUATION` and `RECORDED_SELECTION = "C2"`, set in `58091a0`) in a fresh Colab runtime. It is the second hosted look at the 12-window fresh test and is labelled `reproduction`, as the score-once rule requires. Evidence: [`execution-evidence/2026-10-19-6ba09d2/`](execution-evidence/2026-10-19-6ba09d2/).
