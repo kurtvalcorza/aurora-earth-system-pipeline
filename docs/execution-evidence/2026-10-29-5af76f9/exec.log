@@ -1,0 +1,183 @@
+[colab] Parsing notebook '<local-run-dir>/aurora_earth_system_colab_5af76f9_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/14 - Infrastructure: check the runtime and disk; create a fresh run directory...
+{'gpu': 'Tesla T4, 15360 MiB', 'kernel_python': '3.13.16', 'run_directory': '/content/outputs/aurora_earth_system/b79b97004143', 'weights': '/content/weights', 'environment': '/tmp/aurora_earth_system_env_b79b97004143', 'free_gib': {'weights': 193.1, 'environment': 193.1}}
+[colab] Executing cell 2/14 - Infrastructure: write and verify the carried package, stage runner, lock and manifests...
+{'carried_files': 9, 'verified': True, 'repository': 'kurtvalcorza/aurora-earth-system-pipeline', 'revision': '21a8b7e8e48c7283be2181caea38567bef1181a9', 'generator': 'build_notebook.py/3.1'}
+[colab] Executing cell 3/14 - Infrastructure: install the locked runtime into an isolated environment and define the stage runner...
+{'notebook_source': '21a8b7e8e48c7283be2181caea38567bef1181a9', 'python': '3.12.12', 'torch': '2.14.0+cu130', 'timm': '1.0.29', 'xarray': '2026.7.0', 'numcodecs': '0.17.0', 'cuda': True, 'locked_packages': 69, 'environment': '/tmp/aurora_earth_system_env_b79b97004143/venv', 'setup_seconds': 68}
+[colab] Executing cell 4/14 - Infrastructure: stage and digest-verify the pinned snapshot...
+Running stage 'weights' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/weights.log
+{'model_id': 'microsoft/aurora', 'revision': 'a96afd7ee6d65e3bd2d476f3be798a25a56f2296', 'license': 'mit', 'files': 3, 'total_bytes': 463799373}
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+{'weights_dir': '/content/weights/aurora-0.25-small', 'fetched': ['README.md', 'aurora-0.25-small-pretrained.ckpt', 'aurora-0.25-static.pickle']}
+{'verified_files': 3, 'converted_present': False}
+{'pickle_audit': 'aurora-0.25-small-pretrained.ckpt', 'globals': ['collections.OrderedDict', 'torch.FloatStorage', 'torch._utils._rebuild_tensor_v2'], 'violations': [], 'audit_sha256': 'e7b998d087a5dcad...'}
+{'pickle_audit': 'aurora-0.25-static.pickle', 'globals': ['numpy.core.numeric._frombuffer', 'numpy.dtype'], 'violations': [], 'audit_sha256': 'aeec283f2dbb5861...'}
+{'converted': 'aurora-0.25-small-pretrained.safetensors', 'bytes': 451230408, 'sha256': 'fc03b5fc5764e08e...'}
+{'converted': 'aurora-0.25-static.safetensors', 'bytes': 12459136, 'sha256': '9bd430b666d9267a...'}
+{'conversion': 'converted in this runtime in 8.4 s', 'served_from_pickle': False}
+{'stage': 'weights', 'status': 'ok', 'seconds': 19.2}
+[colab] Executing cell 5/14 - aurora_earth_system-18...
+Running stage 'runtime' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/runtime.log
+{'python': '3.12.12', 'versions_match_lock': True, 'device': 'cuda', 'gpu': 'Tesla T4', 'float': 'float32', 'fresh_test_masked': False}
+{'fresh_test_masked': False, 'switch': 'DIMER_MASK_FRESH_TEST as passed by run_stage at this call; re-read on every stage'}
+{'versions': {'torch': '2.14.0', 'microsoft-aurora': '2.0.1', 'timm': '1.0.29', 'einops': '0.8.2', 'xarray': '2026.7.0', 'netcdf4': '1.7.4', 'numcodecs': '0.17.0', 'numpy': '2.5.3', 'safetensors': '0.8.0', 'huggingface-hub': '1.32.0'}}
+{'ceilings': {'grid': 'H in 17..721 latitudes (90 → -90, with poles; H % 4 in (0, 1)), W in 32..1440 longitudes (0 → 360, W % 4 == 0)', 'levels': [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000], 'time_steps': [3, 64], 'timestep_hours': 6, 'history_steps': 2, 'rollout_steps': [1, 8]}}
+{'stage': 'runtime', 'status': 'ok', 'seconds': 2.9}
+[colab] Executing cell 6/14 - aurora_earth_system-20...
+Running stage 'data' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/data.log
+{'data_source': 'ERA5 via WeatherBench 2 (1.5°, GCS bucket weatherbench2)', 'n_windows': 7, 'grid': (121, 240), 'steps_per_window': [8, 8, 8, 8, 8, 8, 8], 'forecast_origins': 42}
+{'time_span': ['2018-12-31T00:00:00', '2021-10-01T18:00:00'], 'digest': 'adeae382152db303...'}
+{'roles': {'train': ['train-2019-01', 'train-2019-07'], 'validation': ['val-2020-04', 'val-2021-01', 'val-2021-04', 'val-2021-07'], 'test': 'test-2021-10', 'test_role': 'exposed development test', 'fresh_test': ['fresh-2022-01', 'fresh-2022-02', 'fresh-2022-03', 'fresh-2022-04', 'fresh-2022-05', 'fresh-2022-06', 'fresh-2022-07', 'fresh-2022-08', 'fresh-2022-09', 'fresh-2022-10', 'fresh-2022-11', 'fresh-2022-12']}}
+{'settings': {'origin': 1, 'rollout_steps': 4, 'max_lead_steps': 4}, 'steps_needed_for_these_settings': 6, 'test_window_steps': 8, 'new_origin_section_10': 3, 'verdict': 'accepted'}
+{'2t_mean_K_by_window': {'train-2019-01': 277.34, 'train-2019-07': 281.19, 'val-2020-04': 277.44, 'val-2021-01': 276.88, 'val-2021-04': 277.79, 'val-2021-07': 280.89, 'test-2021-10': 279.24}}
+{'exposed_development_test': 'test-2021-10', 'note': 'the default recipe was developed on this window; it is reported, never called independent', 'fresh_test': '12 pinned windows, not fetched here (Section 9 fetches them only for a pre-registered scoring)'}
+{'sample_netcdf': '/content/outputs/aurora_earth_system/b79b97004143/outputs/aurora_earth_system_sample_window.nc', 'steps': 6, 'megabytes': 48.5, 'note': 'the shortest window that completes every stage at these settings'}
+{'validation': 'variable names, array shapes, grid monotonicity and spacing, 6-hour time spacing, finiteness and physical ranges only. Nothing checks that the fields are dynamically consistent, that the analysis is real, or that the resolution is one the model was trained on -- a smooth random field within range is forecast without complaint'}
+{'probe': 'wrong pressure levels', 'rejected': 'levels must be exactly (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000), got (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)'}
+{'probe': 'odd longitude count', 'rejected': 'the number of longitudes (239) must be a multiple of the patch size 4'}
+{'probe': 'implausible temperature', 'rejected': 'surf/2t has values outside the plausible range (150.0, 350.0) K'}
+{'probe': 'irregular time spacing', 'rejected': 'times must be spaced exactly 6 h apart (2021-10-01 12:00:00 -> 2030-01-01 00:00:00)'}
+{'probe': '5 steps for these settings', 'rejected': 'window has 5 6-hourly steps; ROLLOUT_STEPS = 4 and MAX_LEAD_STEPS = 4 need at least 6 (2 history steps + 4 lead steps). Supply a longer window, or lower ROLLOUT_STEPS / MAX_LEAD_STEPS so that 2 + max(ROLLOUT_STEPS, MAX_LEAD_STEPS) <= 5'}
+{'stage': 'data', 'status': 'ok', 'seconds': 121.3}
+[colab] Executing cell 7/14 - aurora_earth_system-23...
+Running stage 'rollout' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/rollout.log
+{'origin_time': '2021-09-30T06:00:00', 'shape': (120, 240), 'seconds': 1.84, 'adapted': False, 'lora_b_max_abs': 0.0, 'device': 'cuda'}
+{'lead_hours': 6, 'valid_time': '2021-09-30T12:00:00', '2t_mean_K': 279.93, 'msl_mean_Pa': 100942.3, 'z500_mean': 54367.2}
+{'lead_hours': 12, 'valid_time': '2021-09-30T18:00:00', '2t_mean_K': 279.834, 'msl_mean_Pa': 100980.2, 'z500_mean': 54440.6}
+{'lead_hours': 18, 'valid_time': '2021-10-01T00:00:00', '2t_mean_K': 279.87, 'msl_mean_Pa': 101014.8, 'z500_mean': 54476.5}
+{'lead_hours': 24, 'valid_time': '2021-10-01T06:00:00', '2t_mean_K': 279.987, 'msl_mean_Pa': 101060.5, 'z500_mean': 54506.7}
+{'repeat_identical': True, 'units': {'2t': 'K', '10u': 'm/s', '10v': 'm/s', 'msl': 'Pa', 't': 'K', 'u': 'm/s', 'v': 'm/s', 'q': 'kg/kg', 'z': 'm²/s²'}}
+{'stage': 'rollout', 'status': 'ok', 'seconds': 12.5}
+[colab] Executing cell 8/14 - aurora_earth_system-26...
+Running stage 'frozen' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/frozen.log
+{'persistence_only': {'2t': {'6h': 2.666, '12h': 3.629, '18h': 3.106, '24h': 1.804}, 'msl': {'6h': 269.141, '12h': 392.725, '18h': 524.716, '24h': 584.747}, 'z500': {'6h': 249.092, '12h': 392.658, '18h': 529.202, '24h': 605.087}}}
+{'frozen_model_seconds': 3.2, 'origins': 3, 'metric': 'latitude-weighted RMSE (cos-lat weights, unit mean); atmospheric variables averaged over the 13 levels', 'adapted': False}
+{'2t': {'6h': {'model': 2.459, 'persistence': 2.666, 'skill': 0.922}, '12h': {'model': 3.243, 'persistence': 3.629, 'skill': 0.894}, '18h': {'model': 3.531, 'persistence': 3.106, 'skill': 1.137}, '24h': {'model': 3.707, 'persistence': 1.804, 'skill': 2.054}}}
+{'10u': {'6h': {'model': 2.715, 'persistence': 1.962, 'skill': 1.384}, '12h': {'model': 3.625, 'persistence': 2.898, 'skill': 1.251}, '18h': {'model': 4.087, 'persistence': 3.505, 'skill': 1.166}, '24h': {'model': 4.42, 'persistence': 3.919, 'skill': 1.128}}}
+{'msl': {'6h': {'model': 414.645, 'persistence': 269.141, 'skill': 1.541}, '12h': {'model': 584.404, 'persistence': 392.725, 'skill': 1.488}, '18h': {'model': 699.499, 'persistence': 524.716, 'skill': 1.333}, '24h': {'model': 771.776, 'persistence': 584.747, 'skill': 1.32}}}
+{'t': {'6h': {'model': 2.35, 'persistence': 1.363, 'skill': 1.724}, '12h': {'model': 2.914, 'persistence': 2.028, 'skill': 1.437}, '18h': {'model': 3.241, 'persistence': 2.405, 'skill': 1.347}, '24h': {'model': 3.448, 'persistence': 2.622, 'skill': 1.315}}}
+{'z500': {'6h': {'model': 410.481, 'persistence': 249.092, 'skill': 1.648}, '12h': {'model': 572.919, 'persistence': 392.658, 'skill': 1.459}, '18h': {'model': 688.63, 'persistence': 529.202, 'skill': 1.301}, '24h': {'model': 765.976, 'persistence': 605.087, 'skill': 1.266}}}
+{'frozen_summary': {'6h': {'mean_skill': 1.568, 'variables_beating_persistence': '1/9'}, '12h': {'mean_skill': 1.328, 'variables_beating_persistence': '1/9'}, '18h': {'mean_skill': 1.237, 'variables_beating_persistence': '1/9'}, '24h': {'mean_skill': 1.294, 'variables_beating_persistence': '2/9'}}}
+{'stage': 'frozen', 'status': 'ok', 'seconds': 13.7}
+[colab] Executing cell 9/14 - aurora_earth_system-29...
+Running stage 'adapt' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/adapt.log
+{'mode': 'grid', 'device': 'cuda', 'gpu': 'Tesla T4', 'fresh_test_masked': False, 'determinism': {'cudnn_deterministic': True, 'cudnn_benchmark': False, 'use_deterministic_algorithms': True, 'warn_only': False, 'CUBLAS_WORKSPACE_CONFIG': ':4096:8', 'sdpa_backend': 'math', 'seed': 0}, 'validation_windows': ['val-2020-04', 'val-2021-01', 'val-2021-04', 'val-2021-07']}
+{'frozen_validation_metric': 1.5784, 'per_window': {'val-2020-04': 1.573, 'val-2021-01': 1.6188, 'val-2021-04': 1.5395, 'val-2021-07': 1.5823}}
+{'config': 'C0', 'learning_rate': 0.001, 'epochs': 6, 'patience': None, 'trainable': 'lora', 'starts_from_lora_b_max_abs': 0.0}
+{'epoch': 0, 'train_loss': None, 'val_loss': 0.1745, 'val_skill_6h': {'2t': 0.897, 'msl': 1.593, 'z500': 1.665}, 'note': 'frozen model (LoRA zero-initialised)'}
+{'epoch': 1, 'train_loss': 0.1414, 'val_loss': 0.0946, 'val_skill_6h': {'2t': 0.771, 'msl': 1.095, 'z500': 1.412}}
+{'epoch': 2, 'train_loss': 0.084, 'val_loss': 0.0732, 'val_skill_6h': {'2t': 0.76, 'msl': 0.978, 'z500': 1.327}}
+{'epoch': 3, 'train_loss': 0.0652, 'val_loss': 0.0608, 'val_skill_6h': {'2t': 0.704, 'msl': 0.97, 'z500': 1.302}}
+{'epoch': 4, 'train_loss': 0.0557, 'val_loss': 0.0553, 'val_skill_6h': {'2t': 0.719, 'msl': 0.933, 'z500': 1.265}}
+{'epoch': 5, 'train_loss': 0.0504, 'val_loss': 0.0505, 'val_skill_6h': {'2t': 0.674, 'msl': 0.89, 'z500': 1.252}}
+{'epoch': 6, 'train_loss': 0.047, 'val_loss': 0.0482, 'val_skill_6h': {'2t': 0.72, 'msl': 0.87, 'z500': 1.235}}
+{'config': 'C0', 'learning_rate': 0.001, 'epochs_budget': 6, 'patience': None, 'epochs_run': 6, 'best_epoch': 6, 'selection_bound': False, 'val_losses': [0.1745, 0.0946, 0.0732, 0.0608, 0.0553, 0.0505, 0.0482], 'val_metric': 0.9156, 'val_metric_per_window': {'val-2020-04': 0.9208, 'val-2021-01': 0.9345, 'val-2021-04': 0.8818, 'val-2021-07': 0.9252}, 'adapter_sha256': '378e0b579c1e8173...'}
+{'config': 'C1', 'learning_rate': 0.0003, 'epochs': 6, 'patience': None, 'trainable': 'lora', 'starts_from_lora_b_max_abs': 0.0}
+{'epoch': 0, 'train_loss': None, 'val_loss': 0.1745, 'val_skill_6h': {'2t': 0.897, 'msl': 1.593, 'z500': 1.665}, 'note': 'frozen model (LoRA zero-initialised)'}
+{'epoch': 1, 'train_loss': 0.1686, 'val_loss': 0.1554, 'val_skill_6h': {'2t': 0.867, 'msl': 1.49, 'z500': 1.609}}
+{'epoch': 2, 'train_loss': 0.1387, 'val_loss': 0.1187, 'val_skill_6h': {'2t': 0.807, 'msl': 1.277, 'z500': 1.499}}
+{'epoch': 3, 'train_loss': 0.1036, 'val_loss': 0.0917, 'val_skill_6h': {'2t': 0.769, 'msl': 1.08, 'z500': 1.397}}
+{'epoch': 4, 'train_loss': 0.0858, 'val_loss': 0.0813, 'val_skill_6h': {'2t': 0.769, 'msl': 1.008, 'z500': 1.347}}
+{'epoch': 5, 'train_loss': 0.0766, 'val_loss': 0.0727, 'val_skill_6h': {'2t': 0.741, 'msl': 0.998, 'z500': 1.334}}
+{'epoch': 6, 'train_loss': 0.0681, 'val_loss': 0.0658, 'val_skill_6h': {'2t': 0.72, 'msl': 0.991, 'z500': 1.323}}
+{'config': 'C1', 'learning_rate': 0.0003, 'epochs_budget': 6, 'patience': None, 'epochs_run': 6, 'best_epoch': 6, 'selection_bound': False, 'val_losses': [0.1745, 0.1554, 0.1187, 0.0917, 0.0813, 0.0727, 0.0658], 'val_metric': 1.0359, 'val_metric_per_window': {'val-2020-04': 1.0355, 'val-2021-01': 1.0533, 'val-2021-04': 1.0045, 'val-2021-07': 1.0504}, 'adapter_sha256': '6df61890e607199c...'}
+{'config': 'C2', 'learning_rate': 0.001, 'epochs': 30, 'patience': 3, 'trainable': 'lora', 'starts_from_lora_b_max_abs': 0.0}
+{'epoch': 0, 'train_loss': None, 'val_loss': 0.1745, 'val_skill_6h': {'2t': 0.897, 'msl': 1.593, 'z500': 1.665}, 'note': 'frozen model (LoRA zero-initialised)'}
+{'epoch': 1, 'train_loss': 0.1414, 'val_loss': 0.0946, 'val_skill_6h': {'2t': 0.771, 'msl': 1.095, 'z500': 1.412}}
+{'epoch': 2, 'train_loss': 0.084, 'val_loss': 0.0732, 'val_skill_6h': {'2t': 0.76, 'msl': 0.978, 'z500': 1.327}}
+{'epoch': 3, 'train_loss': 0.0652, 'val_loss': 0.0608, 'val_skill_6h': {'2t': 0.704, 'msl': 0.97, 'z500': 1.302}}
+{'epoch': 4, 'train_loss': 0.0557, 'val_loss': 0.0553, 'val_skill_6h': {'2t': 0.719, 'msl': 0.933, 'z500': 1.265}}
+{'epoch': 5, 'train_loss': 0.0504, 'val_loss': 0.0505, 'val_skill_6h': {'2t': 0.674, 'msl': 0.89, 'z500': 1.252}}
+{'epoch': 6, 'train_loss': 0.047, 'val_loss': 0.0482, 'val_skill_6h': {'2t': 0.72, 'msl': 0.87, 'z500': 1.235}}
+{'epoch': 7, 'train_loss': 0.044, 'val_loss': 0.046, 'val_skill_6h': {'2t': 0.643, 'msl': 0.828, 'z500': 1.217}}
+{'epoch': 8, 'train_loss': 0.0415, 'val_loss': 0.0442, 'val_skill_6h': {'2t': 0.631, 'msl': 0.798, 'z500': 1.198}}
+{'epoch': 9, 'train_loss': 0.0393, 'val_loss': 0.0431, 'val_skill_6h': {'2t': 0.61, 'msl': 0.774, 'z500': 1.185}}
+{'epoch': 10, 'train_loss': 0.0378, 'val_loss': 0.0423, 'val_skill_6h': {'2t': 0.591, 'msl': 0.762, 'z500': 1.182}}
+{'epoch': 11, 'train_loss': 0.0361, 'val_loss': 0.0412, 'val_skill_6h': {'2t': 0.579, 'msl': 0.743, 'z500': 1.169}}
+{'epoch': 12, 'train_loss': 0.0348, 'val_loss': 0.0407, 'val_skill_6h': {'2t': 0.567, 'msl': 0.733, 'z500': 1.174}}
+{'epoch': 13, 'train_loss': 0.0339, 'val_loss': 0.0405, 'val_skill_6h': {'2t': 0.568, 'msl': 0.723, 'z500': 1.165}}
+{'epoch': 14, 'train_loss': 0.0332, 'val_loss': 0.04, 'val_skill_6h': {'2t': 0.561, 'msl': 0.716, 'z500': 1.166}}
+{'epoch': 15, 'train_loss': 0.0323, 'val_loss': 0.0392, 'val_skill_6h': {'2t': 0.56, 'msl': 0.71, 'z500': 1.15}}
+{'epoch': 16, 'train_loss': 0.0314, 'val_loss': 0.0389, 'val_skill_6h': {'2t': 0.563, 'msl': 0.694, 'z500': 1.143}}
+{'epoch': 17, 'train_loss': 0.0307, 'val_loss': 0.0388, 'val_skill_6h': {'2t': 0.533, 'msl': 0.689, 'z500': 1.146}}
+{'epoch': 18, 'train_loss': 0.035, 'val_loss': 0.0418, 'val_skill_6h': {'2t': 0.544, 'msl': 0.745, 'z500': 1.159}}
+{'epoch': 19, 'train_loss': 0.0338, 'val_loss': 0.0395, 'val_skill_6h': {'2t': 0.537, 'msl': 0.708, 'z500': 1.148}}
+{'epoch': 20, 'train_loss': 0.0314, 'val_loss': 0.0384, 'val_skill_6h': {'2t': 0.525, 'msl': 0.691, 'z500': 1.154}}
+{'epoch': 21, 'train_loss': 0.03, 'val_loss': 0.0383, 'val_skill_6h': {'2t': 0.569, 'msl': 0.683, 'z500': 1.139}}
+{'epoch': 22, 'train_loss': 0.0292, 'val_loss': 0.0377, 'val_skill_6h': {'2t': 0.521, 'msl': 0.677, 'z500': 1.137}}
+{'epoch': 23, 'train_loss': 0.0285, 'val_loss': 0.0373, 'val_skill_6h': {'2t': 0.519, 'msl': 0.664, 'z500': 1.125}}
+{'epoch': 24, 'train_loss': 0.0281, 'val_loss': 0.0375, 'val_skill_6h': {'2t': 0.563, 'msl': 0.661, 'z500': 1.117}}
+{'epoch': 25, 'train_loss': 0.0277, 'val_loss': 0.0373, 'val_skill_6h': {'2t': 0.568, 'msl': 0.658, 'z500': 1.12}}
+{'epoch': 26, 'train_loss': 0.027, 'val_loss': 0.0369, 'val_skill_6h': {'2t': 0.509, 'msl': 0.653, 'z500': 1.117}}
+{'epoch': 27, 'train_loss': 0.0266, 'val_loss': 0.0367, 'val_skill_6h': {'2t': 0.521, 'msl': 0.65, 'z500': 1.099}}
+{'epoch': 28, 'train_loss': 0.0265, 'val_loss': 0.0368, 'val_skill_6h': {'2t': 0.522, 'msl': 0.645, 'z500': 1.107}}
+{'epoch': 29, 'train_loss': 0.0261, 'val_loss': 0.0366, 'val_skill_6h': {'2t': 0.508, 'msl': 0.635, 'z500': 1.1}}
+{'epoch': 30, 'train_loss': 0.0255, 'val_loss': 0.0364, 'val_skill_6h': {'2t': 0.505, 'msl': 0.636, 'z500': 1.093}}
+{'config': 'C2', 'learning_rate': 0.001, 'epochs_budget': 30, 'patience': 3, 'epochs_run': 30, 'best_epoch': 30, 'selection_bound': False, 'val_losses': [0.1745, 0.0946, 0.0732, 0.0608, 0.0553, 0.0505, 0.0482, 0.046, 0.0442, 0.0431, 0.0423, 0.0412, 0.0407, 0.0405, 0.04, 0.0392, 0.0389, 0.0388, 0.0418, 0.0395, 0.0384, 0.0383, 0.0377, 0.0373, 0.0375, 0.0373, 0.0369, 0.0367, 0.0368, 0.0366, 0.0364], 'val_metric': 0.7822, 'val_metric_per_window': {'val-2020-04': 0.7816, 'val-2021-01': 0.7947, 'val-2021-04': 0.7529, 'val-2021-07': 0.7996}, 'adapter_sha256': '324a91ece962f056...'}
+{'selected_system': 'C2', 'rule': 'keep C0 unless beaten by >= 0.02; keep frozen unless beaten by >= 0.02'}
+{'grid_hash': '5961275b233045623843ca00a9a29f2496de279e2a254d33a1c889640481fcdc', 'compare': 'two runs with the same settings must print the same grid_hash'}
+{'artifact': 'aurora_earth_system_adapter', 'config': 'C2', 'format': 'org.valcorza.aurora-earth-system.adapter.v1', 'tensors': 80, 'bytes': 2173200, 'sha256': '324a91ece962f056...'}
+{'stage': 'adapt', 'status': 'ok', 'seconds': 611.4}
+[colab] Executing cell 10/14 - aurora_earth_system-32...
+Running stage 'evaluate' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/evaluate.log
+{'exposed_development_test': 'test-2021-10', 'selected_system': 'C2', 'note': 'the default recipe was developed on this window; not an independent estimate'}
+{'2t': {'6h': {'persistence': 2.6659, 'frozen': 2.4592, 'adapted': 1.3071, 'skill_frozen': 0.922, 'skill_adapted': 0.49}, '12h': {'persistence': 3.6286, 'frozen': 3.2428, 'adapted': 1.7402, 'skill_frozen': 0.894, 'skill_adapted': 0.48}, '18h': {'persistence': 3.1062, 'frozen': 3.5305, 'adapted': 1.9453, 'skill_frozen': 1.137, 'skill_adapted': 0.626}, '24h': {'persistence': 1.8044, 'frozen': 3.7067, 'adapted': 2.1512, 'skill_frozen': 2.054, 'skill_adapted': 1.192}}}
+{'msl': {'6h': {'persistence': 269.1411, 'frozen': 414.6446, 'adapted': 160.8045, 'skill_frozen': 1.541, 'skill_adapted': 0.597}, '12h': {'persistence': 392.7251, 'frozen': 584.4035, 'adapted': 257.5862, 'skill_frozen': 1.488, 'skill_adapted': 0.656}, '18h': {'persistence': 524.7157, 'frozen': 699.4989, 'adapted': 368.121, 'skill_frozen': 1.333, 'skill_adapted': 0.702}, '24h': {'persistence': 584.7468, 'frozen': 771.7756, 'adapted': 459.8133, 'skill_frozen': 1.32, 'skill_adapted': 0.786}}}
+{'z500': {'6h': {'persistence': 249.0921, 'frozen': 410.4806, 'adapted': 257.2313, 'skill_frozen': 1.648, 'skill_adapted': 1.033}, '12h': {'persistence': 392.6579, 'frozen': 572.919, 'adapted': 314.9418, 'skill_frozen': 1.459, 'skill_adapted': 0.802}, '18h': {'persistence': 529.202, 'frozen': 688.6305, 'adapted': 391.6422, 'skill_frozen': 1.301, 'skill_adapted': 0.74}, '24h': {'persistence': 605.0868, 'frozen': 765.9757, 'adapted': 456.6869, 'skill_frozen': 1.266, 'skill_adapted': 0.755}}}
+{'u': {'6h': {'persistence': 3.6391, 'frozen': 7.4949, 'adapted': 2.9097, 'skill_frozen': 2.06, 'skill_adapted': 0.8}, '12h': {'persistence': 5.5256, 'frozen': 8.6923, 'adapted': 4.0572, 'skill_frozen': 1.573, 'skill_adapted': 0.734}, '18h': {'persistence': 6.8921, 'frozen': 9.4736, 'adapted': 5.161, 'skill_frozen': 1.375, 'skill_adapted': 0.749}, '24h': {'persistence': 7.8428, 'frozen': 9.806, 'adapted': 6.1698, 'skill_frozen': 1.25, 'skill_adapted': 0.787}}}
+{'6h': {'frozen_mean_skill': 1.568, 'adapted_mean_skill': 0.769, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 8}}
+{'12h': {'frozen_mean_skill': 1.328, 'adapted_mean_skill': 0.704, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 9}}
+{'18h': {'frozen_mean_skill': 1.237, 'adapted_mean_skill': 0.73, 'beating_persistence_frozen': 1, 'beating_persistence_adapted': 9}}
+{'24h': {'frozen_mean_skill': 1.294, 'adapted_mean_skill': 0.833, 'beating_persistence_frozen': 2, 'beating_persistence_adapted': 8}}
+{'fresh_test_preflight': {'windows': 12, 'objects': 108, 'first_times': {'fresh-2022-01': '2022-01-14T00:00', 'fresh-2022-02': '2022-02-15T00:00', 'fresh-2022-03': '2022-03-15T00:00', 'fresh-2022-04': '2022-04-14T00:00', 'fresh-2022-05': '2022-05-14T00:00', 'fresh-2022-06': '2022-06-15T00:00', 'fresh-2022-07': '2022-07-15T00:00', 'fresh-2022-08': '2022-08-14T00:00', 'fresh-2022-09': '2022-09-15T00:00', 'fresh-2022-10': '2022-10-15T00:00', 'fresh-2022-11': '2022-11-14T00:00', 'fresh-2022-12': '2022-12-14T00:00'}, 'downloaded_fresh_chunks': 0}}
+{'fresh-2022-01': {'frozen_ratio': 1.5786, 'adapted_ratio': 0.7613, 'delta': -0.8172}}
+{'fresh-2022-02': {'frozen_ratio': 1.5159, 'adapted_ratio': 0.7471, 'delta': -0.7688}}
+{'fresh-2022-03': {'frozen_ratio': 1.5724, 'adapted_ratio': 0.777, 'delta': -0.7954}}
+{'fresh-2022-04': {'frozen_ratio': 1.5773, 'adapted_ratio': 0.7659, 'delta': -0.8114}}
+{'fresh-2022-05': {'frozen_ratio': 1.592, 'adapted_ratio': 0.7723, 'delta': -0.8197}}
+{'fresh-2022-06': {'frozen_ratio': 1.6126, 'adapted_ratio': 0.8093, 'delta': -0.8033}}
+{'fresh-2022-07': {'frozen_ratio': 1.6244, 'adapted_ratio': 0.8015, 'delta': -0.8229}}
+{'fresh-2022-08': {'frozen_ratio': 1.5937, 'adapted_ratio': 0.7872, 'delta': -0.8065}}
+{'fresh-2022-09': {'frozen_ratio': 1.5523, 'adapted_ratio': 0.7585, 'delta': -0.7939}}
+{'fresh-2022-10': {'frozen_ratio': 1.5417, 'adapted_ratio': 0.7385, 'delta': -0.8032}}
+{'fresh-2022-11': {'frozen_ratio': 1.5484, 'adapted_ratio': 0.7472, 'delta': -0.8012}}
+{'fresh-2022-12': {'frozen_ratio': 1.5684, 'adapted_ratio': 0.778, 'delta': -0.7904}}
+{'fresh_test': 'reproduction', 'n_windows': 12, 'mean_delta': -0.8028, 'sd_delta': 0.0149, 'ci95_t': [-0.8123, -0.7934], 'ci95_bootstrap': [-0.8103, -0.7944], 'verdict': 'improved', 'adapted_ratio_mean': 0.7703, 'adapted_ratio_ci95_t': [0.7565, 0.7841], 'beats_persistence': True, 'record': 'aurora_earth_system_fresh_test_reproduction_1.json'}
+{'reproduction_of': '2026-10-19 hosted T4, commit 189492a', 'matches_record': True, 'differs': []}
+{'stage': 'evaluate', 'status': 'ok', 'seconds': 280.6}
+[colab] Executing cell 11/14 - aurora_earth_system-35...
+Running stage 'forecast' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/forecast.log
+{'origin_index': 3, 'origin_time': '2021-09-30T18:00:00', 'adapted': True, 'shape': (120, 240)}
+{'lead_hours': 6, 'valid_time': '2021-10-01T00:00:00', '2t_mean_K': 279.271, '2t_rmse_vs_analysis': 1.32, 'note': 'sanity check on the exposed development test, not an evaluation'}
+{'lead_hours': 12, 'valid_time': '2021-10-01T06:00:00', '2t_mean_K': 279.553, '2t_rmse_vs_analysis': 1.885, 'note': 'sanity check on the exposed development test, not an evaluation'}
+{'lead_hours': 18, 'valid_time': '2021-10-01T12:00:00', '2t_mean_K': 280.13, '2t_rmse_vs_analysis': 1.996, 'note': 'sanity check on the exposed development test, not an evaluation'}
+{'lead_hours': 24, 'valid_time': '2021-10-01T18:00:00', '2t_mean_K': 280.045, '2t_rmse_vs_analysis': 2.141, 'note': 'sanity check on the exposed development test, not an evaluation'}
+{'forecast_netcdf': '/content/outputs/aurora_earth_system/b79b97004143/outputs/aurora_earth_system_forecast.nc', 'megabytes': 31.8, 'variables': ['10u', '10v', '2t', 'msl', 'q', 't', 'u', 'v', 'z'], 'dims': {'lead_hours': 4, 'latitude': 120, 'longitude': 240, 'level': 13}}
+{'stage': 'forecast', 'status': 'ok', 'seconds': 12.0}
+[colab] Executing cell 12/14 - aurora_earth_system-38...
+Running stage 'reload' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/reload.log
+{'artifact': '/content/outputs/aurora_earth_system/b79b97004143/outputs/aurora_earth_system_adapter', 'format': 'org.valcorza.aurora-earth-system.adapter.v1', 'tensors': 80, 'bytes': 2173200, 'sha256': '324a91ece962f056...'}
+{'reload_parity': {'max_abs_surf_diff': 0.0, 'max_abs_atmos_diff': 0.0, 'rtol': 1e-05, 'atol': 1e-06, 'reload_verification': 'PASSED', 'reloaded_best_epoch': 30, 'compared': '2 forecast steps from ORIGIN, every variable, against the trained model in the adapt stage'}}
+{'stage': 'reload', 'status': 'ok', 'seconds': 11.2}
+[colab] Executing cell 13/14 - aurora_earth_system-41...
+Running stage 'bundle' in the isolated environment; log: /content/outputs/aurora_earth_system/b79b97004143/logs/bundle.log
+{'outputs_directory': '/content/outputs/aurora_earth_system/b79b97004143/outputs'}
+  - aurora_earth_system_adapter/adapter.safetensors (2122.3 KB)
+  - aurora_earth_system_adapter/manifest.json (66.9 KB)
+  - aurora_earth_system_evaluation_report.json (35.3 KB)
+  - aurora_earth_system_forecast.json (2.4 KB)
+  - aurora_earth_system_forecast.nc (31070.5 KB)
+  - aurora_earth_system_fresh_test_reproduction_1.json (2.6 KB)
+  - aurora_earth_system_frozen_rollout.json (0.9 KB)
+  - aurora_earth_system_frozen_test.json (10.5 KB)
+  - aurora_earth_system_input_manifest.json (1.1 KB)
+  - aurora_earth_system_reload_parity.json (0.3 KB)
+  - aurora_earth_system_result.json (7.8 KB)
+  - aurora_earth_system_sample_window.nc (47324.0 KB)
+  - aurora_earth_system_training_history.json (97.1 KB)
+  - runtime.json (0.4 KB)
+{'stage': 'bundle', 'status': 'ok', 'seconds': 3.1}
+[colab] Executing cell 14/14 - aurora_earth_system-43...
+{'activity': 'skipped (optional)', 'to_run': 'set RUN_ACTIVITY = True, then run this cell'}
+[colab] Saving notebook with outputs to '<local-run-dir>/aurora_earth_system_colab_5af76f9_colab-cli-t4_output.ipynb'...
