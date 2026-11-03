@@ -1,0 +1,70 @@
+{
+  "repo": "aurora-earth-system-pipeline",
+  "sha": "7e156f6071e485e87d80ba6d556fb16aeacda000",
+  "notebook": "tutorials/aurora_earth_system_colab.ipynb",
+  "blob": "43373938cbecc80f82a33f1ce9fd5e6105172692",
+  "gpu": "T4",
+  "session": "suite-aurora-7e156f6-272c",
+  "started_utc": "2026-11-02T14:38:07+00:00",
+  "runner": "Colab CLI `colab exec -f` on a fresh session (not a browser Run all)",
+  "overrides": [
+    {
+      "name": "USE_BYOD",
+      "from": "False",
+      "to": "True"
+    },
+    {
+      "name": "BYOD_PATH",
+      "from": "''",
+      "to": "'/etc/hostname'"
+    }
+  ],
+  "run_copy_blob": "2945e15ff9056439d41bb79048c7789eb8b21d9d",
+  "run_copy_sha256": "e17764ba33b0c0eda9f5f9a54a9efa0bc1c42af1f19c960ad028ab97f441d4c2",
+  "run_copy_note": "refusal run: the run copy is the committed notebook with the listed assignment overrides, cut immediately after the refusal cell and re-serialised (nbformat layout); input_unchanged compares against that copy",
+  "truncated_after_cell": "aurora_earth_system-20",
+  "refusal_cell_ref": "aurora_earth_system-20",
+  "refusal_cell_index": 6,
+  "cells_dropped": 26,
+  "code_cells_dropped": 8,
+  "original_sha256": "9b59fe139931929827a4ebf800f7454308eb1676c438a461c5ae0e4d25281599",
+  "status": "[suite-aurora-7e156f6-272c] gpu-t4-s-usw4b0-1poch6x37vpj4 | Hardware: T4 | Shape: Standard | Variant: GPU | Status: IDLE",
+  "exec_exit_code": 0,
+  "stopped": true,
+  "stop_verified": true,
+  "wall_s": 120.1,
+  "input_unchanged": true,
+  "executed_file": "aurora_earth_system_colab_7e156f6_colab-cli-t4_output.ipynb",
+  "log_cells": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "log_total": 6,
+  "code_cells": 6,
+  "executed_cells": 6,
+  "errors": [
+    {
+      "cell": "aurora_earth_system-20",
+      "ename": "StageRefused",
+      "evalue": "hostname: BYOD file refused: BYOD datasets must be NetCDF (.nc). The results of the earlier configuration were cleared (0 files); fix the file, or set USE_BYOD = False to return to the sample, then re-run Section 5"
+    }
+  ],
+  "execution_counts": [],
+  "sequential": null,
+  "executed_sha256": "120257714473bde280a27d2cde3f2555d60f19661b794f2406bce41eaad2433e",
+  "log_sequential_complete": true,
+  "mode": "expect_refusal",
+  "refusal_line": "Refused: hostname: BYOD file refused: BYOD datasets must be NetCDF (.nc). The results of the earlier configuration were cleared (0 files); fix the file, or set USE_BYOD = False to return to the sample, then re-run Section 5",
+  "halting_cell_index": 6,
+  "halting_cell_id": "aurora_earth_system-20",
+  "error_cells": [
+    6
+  ],
+  "refusal_fail_reasons": [],
+  "refusal_ok": true,
+  "verdict": "PASS"
+}
